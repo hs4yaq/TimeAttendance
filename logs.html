@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ค้นหาประวัติการใช้งาน (System Logs) - PTC</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background-color: #f8fafc; }
+        .loader { border-top-color: #3b82f6; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto space-y-4 animate-in fade-in zoom-in duration-300">
+        <div class="flex items-center justify-between bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+            <div class="flex items-center gap-4">
+                <div class="bg-slate-800 p-3 rounded-2xl text-white shadow-md"><i data-lucide="search" size="24"></i></div>
+                <div>
+                    <h1 class="text-xl font-black text-slate-800 uppercase tracking-tighter">System Security Logs</h1>
+                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">ค้นหาประวัติการทำงานและลงเวลา</p>
+                </div>
+            </div>
+            <button onclick="window.close()" class="bg-slate-50 border border-slate-200 text-slate-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 px-5 py-3 rounded-xl font-bold text-xs transition-colors flex items-center gap-2 uppercase tracking-widest shadow-sm"><i data-lucide="x" size="16"></i> ปิดหน้าต่าง</button>
+        </div>
+
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col gap-4 relative z-20">
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block mb-1">เลือกวันที่</label>
+                    <input type="date" id="search-date" class="w-full p-3.5 bg-slate-50 border-2 border-slate-100 rounded-xl font-black text-slate-700 outline-none focus:border-blue-500 transition-colors">
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block mb-1">ตั้งแต่เวลา (ระบุหรือไม่ก็ได้)</label>
+                    <input type="time" id="search-time-start" class="w-full p-3.5 bg-slate-50 border-2 border-slate-100 rounded-xl font-bold text-slate-700 outline-none focus:border-blue-500 transition-colors text-center">
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block mb-1">ถึงเวลา (ระบุหรือไม่ก็ได้)</label>
+                    <input type="time" id="search-time-end" class="w-full p-3.5 bg-slate-50 border-2 border-slate-100 rounded-xl font-bold text-slate-700 outline-none focus:border-blue-500 transition-colors text-center">
+                </div>
+            </div>
+
+            <div class="flex flex-col md:flex-row items-end gap-4 mt-2">
+                <div class="w-full md:w-auto flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block mb-1">ผู้ดำเนินการ (รหัส, ชื่อ)</label>
+                        <div class="relative w-full">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><i data-lucide="user" class="text-slate-400" size="18"></i></div>
+                            <input type="text" id="search-actor" placeholder="เช่น 4778 หรือ สมปอง..." class="search-input w-full pl-12 pr-4 py-3.5 bg-slate-50 border-2 border-slate-100 rounded-xl font-bold text-sm outline-none focus:border-blue-500 transition-colors text-slate-700">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block mb-1">การดำเนินการ (Action, รายละเอียด)</label>
+                        <div class="relative w-full">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><i data-lucide="activity" class="text-slate-400" size="18"></i></div>
+                            <input type="text" id="search-action" placeholder="เช่น CLOCK_IN, เข้างาน..." class="search-input w-full pl-12 pr-4 py-3.5 bg-slate-50 border-2 border-slate-100 rounded-xl font-bold text-sm outline-none focus:border-blue-500 transition-colors text-slate-700">
+                        </div>
+                    </div>
+                </div>
+                <button onclick="window.executeSearch()" id="btn-search" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-black text-sm shadow-lg shadow-blue-200 active:scale-95 transition-all flex justify-center items-center gap-2 whitespace-nowrap disabled:opacity-50"><i data-lucide="search" size="18"></i> ค้นหาข้อมูล</button>
+            </div>
+
+        </div>
+
+        <div id="logs-container" class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden min-h-[50vh] flex flex-col relative">
+            <div id="loader" class="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center hidden">
+                <div class="loader w-12 h-12 border-4 border-slate-200 rounded-full mb-4"></div>
+                <p class="text-[10px] font-black text-blue-600 uppercase tracking-widest animate-pulse">กำลังค้นหาข้อมูลในฐานข้อมูล...</p>
+            </div>
+            
+            <div class="overflow-x-auto flex-1">
+                <table class="w-full text-sm text-left">
+                    <thead class="bg-slate-50 border-b-2 border-slate-100 font-black text-[10px] text-slate-400 uppercase tracking-widest">
+                        <tr>
+                            <th class="p-5 w-32">เวลา (Time)</th>
+                            <th class="p-5">ผู้ดำเนินการ (User/Admin)</th>
+                            <th class="p-5 w-40 text-center">การกระทำ (Action)</th>
+                            <th class="p-5 w-1/3">รายละเอียด (Details)</th>
+                            <th class="p-5 text-right w-32">IP Address</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logs-body" class="divide-y divide-slate-50 text-slate-700">
+                        <tr>
+                            <td colspan="5" class="py-24">
+                                <div class="flex flex-col items-center justify-center text-center gap-4 w-full">
+                                    <div class="bg-slate-50 p-4 rounded-full"><i data-lucide="file-search" size="48" class="text-slate-300"></i></div>
+                                    <p class="text-lg tracking-tight text-slate-500 font-bold">กรุณาระบุเงื่อนไขและกด <span class="text-blue-500">"ค้นหาข้อมูล"</span></p>
+                                    <p class="text-[10px] font-normal uppercase tracking-widest text-slate-400">ระบุคำค้นหา หรือ ช่วงเวลาเพื่อดึงข้อมูล</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // ==========================================
+        // 🛑 1. ด่านตรวจคนเข้าเมือง (One-Time Token Validation)
+        // ==========================================
+        const urlParams = new URLSearchParams(window.location.search);
+        const tokenFromUrl = urlParams.get('auth_token');
+        const tokenFromStorage = localStorage.getItem('ptc_log_access_token');
+
+        if (!tokenFromUrl || !tokenFromStorage || tokenFromUrl !== tokenFromStorage) {
+            alert("⚠️ ปฏิเสธการเข้าถึง: กรุณาเปิดหน้านี้ผ่านปุ่มในระบบ Admin เท่านั้น");
+            window.location.href = 'index.html'; 
+        }
+
+        localStorage.removeItem('ptc_log_access_token');
+        lucide.createIcons();
+
+        document.getElementById('search-date').value = new Date().toLocaleDateString('en-CA');
+
+        // ==========================================
+        // 2. Firebase Init & Fetch Data
+        // ==========================================
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, query, where, orderBy, getDocs, getDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDD_vxKzC_sxo3cbvhDD9QECz7xOa8IvKA",
+            authDomain: "ptc-timeattendance.firebaseapp.com",
+            projectId: "ptc-timeattendance"
+        };
+        const APP_ID = "ptc-attendance-production";
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let isAdminVerified = false;
+
+        onAuthStateChanged(auth, async (u) => {
+            if (!u || u.isAnonymous) {
+                alert("ปฏิเสธการเข้าถึง: คุณยังไม่ได้ล็อกอินเป็นผู้ดูแลระบบ");
+                window.location.href = 'index.html'; return;
+            }
+            try {
+                const configSnap = await getDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'settings', 'config'));
+                const adminEmails = configSnap.exists() && configSnap.data().adminEmails ? configSnap.data().adminEmails : [];
+
+                if (!adminEmails.includes(u.email)) {
+                    alert("ปฏิเสธการเข้าถึง: อีเมลนี้ไม่มีสิทธิ์ดูประวัติ");
+                    window.location.href = 'index.html'; return;
+                }
+                isAdminVerified = true;
+            } catch (err) {
+                alert("เกิดข้อผิดพลาดในการตรวจสอบสิทธิ์: " + err.message);
+            }
+        });
+
+        // ==========================================
+        // 🟢 3. ฟังก์ชันค้นหาข้อมูล
+        // ==========================================
+        window.executeSearch = async () => {
+            if (!isAdminVerified) {
+                alert("ระบบกำลังตรวจสอบสิทธิ์ในฐานข้อมูล กรุณารอสักครู่..."); return;
+            }
+
+            const dateVal = document.getElementById('search-date').value;
+            const timeStartVal = document.getElementById('search-time-start').value;
+            const timeEndVal = document.getElementById('search-time-end').value;
+            const actorKeyword = document.getElementById('search-actor').value.toLowerCase().trim();
+            const actionKeyword = document.getElementById('search-action').value.toLowerCase().trim();
+            
+            const btn = document.getElementById('btn-search');
+            const loader = document.getElementById('loader');
+            const tbody = document.getElementById('logs-body');
+
+            if (!dateVal) { alert("กรุณาเลือกวันที่ต้องการค้นหา"); return; }
+            
+            // 👇 บังคับให้ต้องพิมพ์ช่องใดช่องหนึ่ง หรือระบุช่วงเวลา ถึงจะค้นหาได้ (ลดภาระ Database)
+            if (!actorKeyword && !actionKeyword && (!timeStartVal && !timeEndVal)) { 
+                alert("กรุณาระบุคำค้นหา (ผู้ดำเนินการ/การดำเนินการ) หรือ ระบุช่วงเวลา เพื่อค้นหาข้อมูลครับ"); 
+                document.getElementById('search-actor').focus();
+                return; 
+            }
+
+            loader.classList.remove('hidden');
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-2" class="animate-spin" size="18"></i> กำลังค้นหา...';
+            lucide.createIcons();
+
+            try {
+                // 1. จัดการ Date & Time ให้แม่นยำ (ระดับมิลลิวินาที)
+                const startDate = new Date(dateVal);
+                if (timeStartVal) {
+                    const [hours, minutes] = timeStartVal.split(':');
+                    startDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                } else {
+                    startDate.setHours(0, 0, 0, 0); // เริ่มต้นเที่ยงคืนถ้าไม่ระบุ
+                }
+
+                const endDate = new Date(dateVal);
+                if (timeEndVal) {
+                    const [hours, minutes] = timeEndVal.split(':');
+                    endDate.setHours(parseInt(hours), parseInt(minutes), 59, 999);
+                } else {
+                    endDate.setHours(23, 59, 59, 999); // สิ้นสุดก่อนเที่ยงคืนถ้าไม่ระบุ
+                }
+
+                if (startDate > endDate) {
+                    alert("เวลาเริ่มต้นต้องไม่มากกว่าเวลาสิ้นสุดครับ");
+                    throw new Error("Invalid time range");
+                }
+
+                const logsRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'system_logs');
+                
+                // 2. Query จาก Firebase จะจำกัดจำนวนข้อมูลให้ออกมา "น้อยที่สุด" ตามช่วงเวลาที่ระบุ (ประหยัด Read)
+                const q = query(
+                    logsRef, 
+                    where('timestamp', '>=', startDate),
+                    where('timestamp', '<=', endDate),
+                    orderBy('timestamp', 'desc')
+                );
+
+                const snap = await getDocs(q);
+
+                let filteredLogs = [];
+                const actorTerms = actorKeyword ? actorKeyword.split(/\s+/) : [];
+                const actionTerms = actionKeyword ? actionKeyword.split(/\s+/) : [];
+
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    let isMatch = true;
+
+                    // กรองช่องที่ 1: ผู้ดำเนินการ
+                    if (actorTerms.length > 0) {
+                        const actorStr = `${d.adminEmail}`.toLowerCase();
+                        const matchActor = actorTerms.every(term => actorStr.includes(term));
+                        if (!matchActor) isMatch = false; 
+                    }
+
+                    // กรองช่องที่ 2: การดำเนินการ
+                    if (isMatch && actionTerms.length > 0) {
+                        const actionStr = `${d.action} ${d.details}`.toLowerCase();
+                        const matchAction = actionTerms.every(term => actionStr.includes(term));
+                        if (!matchAction) isMatch = false; 
+                    }
+
+                    if (isMatch) {
+                        filteredLogs.push(d);
+                    }
+                });
+
+                if (filteredLogs.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="py-24">
+                                <div class="flex flex-col items-center justify-center text-center gap-3 w-full">
+                                    <div class="bg-slate-50 p-4 rounded-full"><i data-lucide="search-x" size="40" class="text-slate-300"></i></div>
+                                    <p class="text-slate-400 font-bold text-base">ไม่พบประวัติในเงื่อนไขและช่วงเวลาที่คุณค้นหา</p>
+                                </div>
+                            </td>
+                        </tr>`;
+                } else {
+                    let html = '';
+                    filteredLogs.forEach(d => {
+                        const timeStr = d.timestamp ? d.timestamp.toDate().toLocaleTimeString('th-TH', { hour12: false }) : '-';
+                        
+                        let badgeColor = 'bg-slate-100 text-slate-600 border border-slate-200';
+                        if (d.action === 'CLOCK_IN') badgeColor = 'bg-emerald-50 text-emerald-600 border border-emerald-200';
+                        else if (d.action === 'CLOCK_OUT') badgeColor = 'bg-orange-50 text-orange-600 border border-orange-200';
+                        else if (d.action === 'USER_LOGIN' || d.action === 'ADMIN_LOGIN') badgeColor = 'bg-indigo-50 text-indigo-600 border border-indigo-200';
+                        else if (d.action === 'UPDATE_SETTINGS' || d.action === 'ADD_USER' || d.action === 'EDIT_USER' || d.action === 'CREATE_USER') badgeColor = 'bg-blue-50 text-blue-600 border border-blue-200';
+                        else if (d.action === 'RESET_DEVICE') badgeColor = 'bg-red-50 text-red-600 border border-red-200';
+                        else if (d.action === 'UPDATE_REMARK' || d.action === 'CLEAR_REMARK') badgeColor = 'bg-amber-50 text-amber-600 border border-amber-200';
+
+                        html += `
+                            <tr class="hover:bg-slate-50 transition-colors group">
+                                <td class="p-5 font-mono text-[13px] text-slate-500 whitespace-nowrap">${timeStr} น.</td>
+                                <td class="p-5 font-black text-[13px] text-slate-800">${escapeHTML(d.adminEmail)}</td>
+                                <td class="p-5 text-center"><span class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm ${badgeColor}">${escapeHTML(d.action)}</span></td>
+                                <td class="p-5 text-[12px] font-medium text-slate-600 leading-relaxed">${escapeHTML(d.details)}</td>
+                                <td class="p-5 text-right font-mono text-[10px] text-slate-400">${escapeHTML(d.ipAddress || '-')}</td>
+                            </tr>
+                        `;
+                    });
+                    tbody.innerHTML = html;
+                }
+
+            } catch (err) {
+                if (err.message !== "Invalid time range") {
+                    console.error(err);
+                    alert("เกิดข้อผิดพลาดในการดึงข้อมูล: " + err.message);
+                }
+            } finally {
+                loader.classList.add('hidden');
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="search" size="18"></i> ค้นหาข้อมูล';
+                lucide.createIcons();
+            }
+        };
+        
+        // 🟢 ผูก Event กดปุ่ม Enter ในทุกช่องค้นหา ให้ทำงานทันที
+        document.querySelectorAll('.search-input, #search-time-start, #search-time-end').forEach(input => {
+            input.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') window.executeSearch();
+            });
+        });
+
+        // 🟢 ฟังก์ชันป้องกัน XSS
+        const escapeHTML = (str) => {
+            if (!str) return '';
+            return String(str).replace(/[&<>'"]/g, tag => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'}[tag] || tag));
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+
+  match /databases/{database}/documents {
+  
+  match /artifacts/{appId}/public/data/{document=**} {
+      // 🟢 เพิ่มบรรทัด VIP นี้ลงไป (เปลี่ยนอีเมลเป็นของคุณ)
+      allow read, write: if request.auth != null && 
+        (request.auth.token.email == 'suppachai.hom@ptc.ac.th' || request.auth.token.email == 'saraban@ptc.ac.th');
+        
+      // ... (กฏเดิมอื่นๆ ของคุณ ปล่อยไว้ด้านล่างได้เลยครับ) ...
+    }
+  
+  
+       match /artifacts/{appId}/public/data {
+
+        // 1. ฟังก์ชันเช็คว่าเป็นแอดมินหรือไม่
+        function isAdmin() {
+          let userEmail = request.auth.token.get('email', '');
+          let configData = get(/databases/$(database)/documents/artifacts/$(appId)/public/data/settings/config).data;
+          let adminList = configData.get('adminEmails', []); 
+  
+          return request.auth != null 
+             && "email" in request.auth.token 
+             && (
+               userEmail in ['suppachai.hom@ptc.ac.th', 'hs4yaq@gmail.com']
+               || userEmail in adminList
+             );
+        }
+
+        // 2. ฟังก์ชันเช็คว่ามีตัวตนในระบบ
+        function isUser() {
+          return request.auth != null;
+        }
+
+        // ส่วนที่ 1: การตั้งค่า (Config)
+        match /settings/config {
+          allow read: if true; 
+          allow write: if isAdmin();
+        }
+
+        // ส่วนที่ 2: ฐานข้อมูลพนักงาน (Users)
+        match /users/{userId} {
+          allow get: if isUser(); 
+          allow list: if isAdmin();
+          
+          allow create: if isUser() 
+                        && (request.resource.data.mainLine != 'EXECUTIVE' || isAdmin());
+                        
+          allow update: if isAdmin() 
+                        || (isUser() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['boundDeviceId']));
+                        
+          allow delete: if isAdmin();
+        }
+
+        // ส่วนที่ 3: ฐานข้อมูลการลงเวลา (Attendance)
+        match /attendance/{docId} {
+          allow read: if isUser(); 
+          
+          allow create: if isAdmin() || (
+            isUser() 
+            && request.resource.data.timestamp == request.time
+            && request.resource.data.type in ['IN', 'OUT']
+            && request.resource.data.deviceId is string
+          );
+
+          allow update, delete: if isAdmin(); 
+        }
+        
+        match /system_logs/{logId} {
+          allow create: if isUser(); // อนุญาตให้พนักงาน/แอดมิน ที่เข้าสู่ระบบแล้วสร้าง Log ได้
+          allow read: if isAdmin();  // บังคับให้เฉพาะ แอดมิน เท่านั้นที่สามารถดึง Log ไปดูได้ (ความปลอดภัยระดับ 2)
+          allow update, delete: if false; // ห้ามแก้ไข หรือ ลบ Log เด็ดขาด        
+        }
+        
+      }
+  }
+}
