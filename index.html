@@ -19,25 +19,41 @@
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;700;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
     
+    <!-- กำหนดค่า Tailwind ให้รองรับ Dark Mode แบบ Class -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'ptc-red': '#9D1515',
+                    }
+                }
+            }
+        }
+    </script>
+
     <style>
         /* CSS กำหนดสไตล์พื้นฐานและแอนิเมชัน */
-        body { font-family: 'Sarabun', sans-serif; background-color: #f1f5f9; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
+        body { font-family: 'Sarabun', sans-serif; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
         .bg-ptc-red { background-color: #9D1515; }
         .text-ptc-red { color: #9D1515; }
         .border-ptc-red { border-color: #9D1515; }
         .fade-in { animation: fadeIn 0.4s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .loader { border-top-color: #9D1515; animation: spin 1s linear infinite; }
+        .dark .loader { border-top-color: #ef4444; } /* สี loader ในโหมดมืด */
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
         select { -webkit-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0.75rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; }
-         
+        
         /* สไตล์สำหรับการปริ้นรายงาน */
         @media print { 
+            @page { margin-top: 10mm; }
             .no-print { display: none !important; } 
             .print-only { display: block !important; } 
-            body { background: white; padding: 0; margin: 0; } 
-            .report-page { padding: 20px; }
+            body { background: white !important; color: black !important; padding: 0; margin: 0; } 
+            .report-page { padding: 0 20px 20px 20px; }
             .report-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 9pt; }
             .report-table th, .report-table td { border: 1px solid #333; padding: 5px; text-align: left; }
             .print-section-title { background-color: #f3f4f6 !important; font-weight: bold; padding: 5px; border: 1px solid #333; -webkit-print-color-adjust: exact; margin-top: 10px; }
@@ -46,12 +62,23 @@
         .print-only { display: none; }
         .modal-active { display: flex !important; animation: fadeInModal 0.2s ease-out; }
         @keyframes fadeInModal { from { opacity: 0; } to { opacity: 1; } }
+
+        /* ทำให้แผนที่มืดลงเมื่อเปิดโหมดมืด */
+        .dark-map-filter {
+            filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+        }
     </style>
-    </head>
+</head>
 
-<body class="min-h-screen relative text-left">
+<body class="min-h-screen relative text-left bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 transition-colors duration-300">
 
-    <div id="pwa-install-banner" class="fixed bottom-4 right-4 w-[calc(100vw-2rem)] max-w-sm sm:w-80 bg-slate-900 text-white p-5 rounded-3xl z-[3000] hidden flex flex-col items-start gap-4 shadow-[0_10px_40px_rgba(0,0,0,0.3)] transform transition-transform translate-y-[calc(100%+1rem)]">
+    <!-- Theme Toggle Button -->
+    <button id="theme-toggle" onclick="window.toggleTheme()" class="fixed bottom-6 right-6 z-[5000] p-4 rounded-full bg-white dark:bg-slate-800 shadow-[0_4px_25px_rgba(0,0,0,0.2)] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:scale-110 active:scale-95 transition-all no-print focus:outline-none flex items-center justify-center">
+        <i data-lucide="moon" id="theme-icon-moon" size="24"></i>
+        <i data-lucide="sun" id="theme-icon-sun" size="24" class="hidden text-amber-500"></i>
+    </button>
+
+    <div id="pwa-install-banner" class="fixed bottom-24 right-4 w-[calc(100vw-2rem)] max-w-sm sm:w-80 bg-slate-900 dark:bg-slate-800 text-white p-5 rounded-3xl z-[3000] hidden flex flex-col items-start gap-4 shadow-[0_10px_40px_rgba(0,0,0,0.3)] transform transition-transform translate-y-[calc(100%+1rem)] border border-slate-700">
         <div class="flex items-center gap-4 w-full">
             <img src="https://www.ptc.ac.th/attendance/logo_ptc.png" class="w-12 h-12 bg-white rounded-xl p-1.5 shadow-sm" alt="logo">
             <div class="flex-1 min-w-0">
@@ -64,56 +91,59 @@
             <button id="btn-install-pwa" class="bg-ptc-red px-6 py-2.5 rounded-xl font-black text-xs shadow-lg uppercase tracking-widest active:scale-95 transition-all w-full text-center">ติดตั้ง</button>
         </div>
     </div>
-    <div id="app" class="max-w-6xl mx-auto p-4 md:p-8">
+    
+    <div id="app" class="max-w-6xl mx-auto p-4 md:p-8 pt-16 md:pt-8">
         
-        <div id="init-loader" class="fixed inset-0 bg-white z-[200] flex flex-col items-center justify-center p-6 text-center">
+        <div id="init-loader" class="fixed inset-0 bg-white dark:bg-slate-900 z-[200] flex flex-col items-center justify-center p-6 text-center transition-colors duration-300">
             <img src="https://www.ptc.ac.th/attendance/logo_ptc.png" class="w-32 h-32 mb-6 animate-bounce" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%239D1515\' stroke-width=\'2\'><circle cx=\'12\' cy=\'12\' r=\'10\'/><path d=\'M12 8v4l3 3\'/></svg>'">
-            <div class="loader w-10 h-10 border-4 border-slate-100 rounded-full mb-4"></div>
-            <p id="loader-msg" class="font-bold text-ptc-red tracking-tight">กำลังตรวจสอบความปลอดภัยและข้อมูลระบบ...</p>
+            <div class="loader w-10 h-10 border-4 border-slate-100 dark:border-slate-800 rounded-full mb-4"></div>
+            <p id="loader-msg" class="font-bold text-ptc-red dark:text-red-500 tracking-tight">กำลังตรวจสอบความปลอดภัยและข้อมูลระบบ...</p>
         </div>
+        
         <div id="status-modal" class="fixed inset-0 z-[1000] items-center justify-center p-4 hidden text-left">
             <div class="absolute inset-0 bg-slate-900/70 backdrop-blur-sm text-left"></div>
-            <div class="relative max-w-sm w-full bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+            <div class="relative max-w-sm w-full bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300 border border-slate-200 dark:border-slate-700">
                 <div class="p-8 flex flex-col items-center text-center">
                     <div id="modal-icon-bg" class="w-20 h-20 rounded-full flex items-center justify-center text-white mb-6 shadow-lg text-left"></div>
-                    <h2 id="modal-title" class="text-xl font-black text-slate-800 mb-2 leading-tight text-left"></h2>
-                    <p id="modal-text" class="text-slate-500 font-bold text-sm leading-relaxed mb-8 px-2 text-center"></p>
-                    <button onclick="window.closeStatusModal()" class="w-full py-4 bg-slate-900 hover:bg-black text-white rounded-2xl font-black shadow-lg transition-all active:scale-95 uppercase tracking-widest text-center">ปิดหน้าต่าง</button>
+                    <h2 id="modal-title" class="text-xl font-black text-slate-800 dark:text-white mb-2 leading-tight text-left"></h2>
+                    <p id="modal-text" class="text-slate-500 dark:text-slate-400 font-bold text-sm leading-relaxed mb-8 px-2 text-center"></p>
+                    <button onclick="window.closeStatusModal()" class="w-full py-4 bg-slate-900 dark:bg-black text-white rounded-2xl font-black shadow-lg transition-all active:scale-95 uppercase tracking-widest text-center">ปิดหน้าต่าง</button>
                 </div>
             </div>
         </div>
+        
         <div id="edit-user-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4">
-            <div class="bg-white rounded-[2.5rem] p-8 max-w-lg w-full shadow-2xl flex flex-col overflow-hidden text-sm">
-                <h2 id="modal-action-title" class="text-xl font-black mb-4 border-b pb-2 flex items-center gap-2 uppercase text-slate-800"><i data-lucide="user-cog" class="text-ptc-red inline-block" size="20"></i> จัดการข้อมูลบุคลากร</h2>
-                <div id="id-warning-msg" class="bg-amber-50 text-amber-700 p-3 rounded-xl mb-4 text-[10px] font-bold border border-amber-200 flex gap-2">
+            <div class="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 max-w-lg w-full shadow-2xl flex flex-col overflow-hidden text-sm border border-slate-200 dark:border-slate-700 transition-colors duration-300">
+                <h2 id="modal-action-title" class="text-xl font-black mb-4 border-b dark:border-slate-700 pb-2 flex items-center gap-2 uppercase text-slate-800 dark:text-white"><i data-lucide="user-cog" class="text-ptc-red dark:text-red-500 inline-block" size="20"></i> จัดการข้อมูลบุคลากร</h2>
+                <div id="id-warning-msg" class="bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 p-3 rounded-xl mb-4 text-[10px] font-bold border border-amber-200 dark:border-amber-800/50 flex gap-2">
                     <i data-lucide="alert-triangle" size="16" class="shrink-0 mt-0.5"></i>
                     <p>ระบบไม่อนุญาตให้เปลี่ยน "รหัส ID" เพื่อป้องกันประวัติการลงเวลาสูญหาย หากรหัสผิดพลาด กรุณาลบข้อมูลแล้วสร้างใหม่</p>
                 </div>
                 <form id="form-edit-user" class="space-y-4">
                     <input type="hidden" id="edit-original-id">
                     <div>
-                        <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">รหัส ID (Login)</label>
-                        <input type="text" id="edit-posid" class="w-full p-3 bg-slate-100 border border-slate-200 text-slate-500 rounded-xl font-mono font-bold outline-none mb-2" readonly required>
+                        <label class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase block mb-1">รหัส ID (Login)</label>
+                        <input type="text" id="edit-posid" class="w-full p-3 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 rounded-xl font-mono font-bold outline-none mb-2" readonly required>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
-                        <div><label class="text-[10px] font-bold text-slate-400 uppercase italic">ชื่อ</label><input type="text" id="edit-fn" class="w-full p-3 bg-slate-50 border rounded-xl font-bold outline-none focus:border-red-600" required></div>
-                        <div><label class="text-[10px] font-bold text-slate-400 uppercase italic">นามสกุล</label><input type="text" id="edit-ln" class="w-full p-3 bg-slate-50 border rounded-xl font-bold outline-none focus:border-red-600" required></div>
+                        <div><label class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase italic">ชื่อ</label><input type="text" id="edit-fn" class="w-full p-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 text-slate-800 dark:text-white rounded-xl font-bold outline-none focus:border-red-600 dark:focus:border-red-500" required></div>
+                        <div><label class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase italic">นามสกุล</label><input type="text" id="edit-ln" class="w-full p-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 text-slate-800 dark:text-white rounded-xl font-bold outline-none focus:border-red-600 dark:focus:border-red-500" required></div>
                     </div>
                     <div>
-                        <label class="text-[10px] font-bold text-slate-400 uppercase italic block">สายงานหลัก (Main Line)</label>
-                        <select id="edit-mainline" class="w-full p-3 bg-slate-50 border rounded-xl font-bold outline-none focus:border-red-600">
+                        <label class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase italic block">สายงานหลัก (Main Line)</label>
+                        <select id="edit-mainline" class="w-full p-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 text-slate-800 dark:text-white rounded-xl font-bold outline-none focus:border-red-600 dark:focus:border-red-500">
                             <option value="EXECUTIVE">ผู้บริหาร (EXECUTIVE)</option>
                             <option value="SUPPORT">เจ้าหน้าที่ (SUPPORT)</option>
                             <option value="ACADEMIC">ครู (ACADEMIC)</option>
                         </select>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
-                        <div><label class="text-[10px] font-bold text-slate-400 uppercase italic">ฝ่าย/คณะ</label><select id="edit-div" class="w-full p-3 bg-slate-50 border rounded-xl font-bold outline-none focus:border-red-600"></select></div>
-                        <div><label class="text-[10px] font-bold text-slate-400 uppercase italic">แผนก/งาน (Department)</label><select id="edit-dept" class="w-full p-3 bg-slate-50 border rounded-xl font-bold outline-none focus:border-red-600"></select></div>
+                        <div><label class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase italic">ฝ่าย/คณะ</label><select id="edit-div" class="w-full p-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 text-slate-800 dark:text-white rounded-xl font-bold outline-none focus:border-red-600 dark:focus:border-red-500"></select></div>
+                        <div><label class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase italic">แผนก/งาน (Department)</label><select id="edit-dept" class="w-full p-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 text-slate-800 dark:text-white rounded-xl font-bold outline-none focus:border-red-600 dark:focus:border-red-500"></select></div>
                     </div>
-                    <div><label class="text-[10px] font-bold text-slate-400 uppercase italic block">ชื่อตำแหน่ง (Job Name)</label><select id="edit-job" class="w-full p-3 bg-slate-50 border rounded-xl font-bold outline-none focus:border-red-600"></select></div>
-                    <div class="flex gap-2 mt-6 pt-4 border-t">
-                        <button type="button" onclick="document.getElementById('edit-user-modal').classList.remove('modal-active')" class="flex-1 font-bold text-slate-400 uppercase tracking-tighter text-center py-3 bg-slate-100 rounded-xl">ยกเลิก</button>
+                    <div><label class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase italic block">ชื่อตำแหน่ง (Job Name)</label><select id="edit-job" class="w-full p-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 text-slate-800 dark:text-white rounded-xl font-bold outline-none focus:border-red-600 dark:focus:border-red-500"></select></div>
+                    <div class="flex gap-2 mt-6 pt-4 border-t dark:border-slate-700">
+                        <button type="button" onclick="document.getElementById('edit-user-modal').classList.remove('modal-active')" class="flex-1 font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-center py-3 bg-slate-100 dark:bg-slate-700 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">ยกเลิก</button>
                         <button type="submit" id="btn-save-edit" class="flex-[2] bg-blue-600 text-white py-3 rounded-xl font-black shadow-lg uppercase active:scale-95 tracking-tight text-center flex justify-center items-center gap-2"><i data-lucide="save" size="18"></i> บันทึกข้อมูล</button>
                     </div>
                 </form>
@@ -128,9 +158,50 @@
             <div id="view-admin_panel" class="view-section fade-in hidden"></div>
         </div>
         
-        <div id="app-version" class="fixed bottom-4 right-4 text-[10px] font-bold text-slate-300 pointer-events-none no-print"></div>
+        <div id="app-version" class="fixed bottom-4 left-4 text-[10px] font-bold text-slate-400 dark:text-slate-500 pointer-events-none no-print"></div>
         
     </div>
+
+    <!-- Theme Control Script -->
+    <script>
+        function applyTheme(isDark) {
+            const html = document.documentElement;
+            const moon = document.getElementById('theme-icon-moon');
+            const sun = document.getElementById('theme-icon-sun');
+
+            if (isDark) {
+                html.classList.add('dark');
+                if (moon) moon.classList.add('hidden');
+                if (sun) sun.classList.remove('hidden');
+                localStorage.setItem('ptc_theme', 'dark');
+            } else {
+                html.classList.remove('dark');
+                if (moon) moon.classList.remove('hidden');
+                if (sun) sun.classList.add('hidden');
+                localStorage.setItem('ptc_theme', 'light');
+            }
+            
+            if (window.lucide) {
+                setTimeout(() => lucide.createIcons(), 10);
+            }
+        }
+
+        window.toggleTheme = () => {
+            const isDark = document.documentElement.classList.contains('dark');
+            applyTheme(!isDark);
+        };
+
+        (function initTheme() {
+            const savedTheme = localStorage.getItem('ptc_theme');
+            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            
+            if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
+                applyTheme(true);
+            } else {
+                applyTheme(false);
+            }
+        })();
+    </script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -138,7 +209,7 @@
         import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteField, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ==========================================
-        // 🟢 เริ่มระบบ: 0. PWA SETUP & INSTALL BANNER
+        // 0. PWA SETUP & INSTALL BANNER
         // ==========================================
         const manifest = {
             "name": "PTC TimeAttendance",
@@ -164,11 +235,9 @@
         const isIOS = (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) && !window.MSStream;
         const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
 
-        // --- ตรวจสอบว่าเป็น iOS แต่ไม่ได้เปิดด้วย Safari (เช่น Chrome, LINE) ---
         const uaLowerCase = window.navigator.userAgent.toLowerCase();
         const isSafariForPwa = /safari/.test(uaLowerCase) && !/crios/.test(uaLowerCase) && !/fxios/.test(uaLowerCase) && !/line/.test(uaLowerCase);
         const isIosNotSafari = isIOS && !isSafariForPwa;
-        // ----------------------------------------------------------------------
 
         let deferredPrompt;
         window.isSystemReady = false; 
@@ -191,7 +260,7 @@
                         </div>
                         
                         <div class="grid grid-cols-2 gap-3 text-center text-xs">
-                            <div class="bg-slate-800 p-3 rounded-2xl flex flex-col items-center">
+                            <div class="bg-slate-800 p-3 rounded-2xl flex flex-col items-center border border-slate-700">
                                 <div class="w-7 h-7 bg-blue-500 rounded-full flex items-center justify-center font-black mb-3 text-white">1</div>
                                 <p class="text-white font-bold leading-tight mb-3 flex-1 min-h-[36px] flex items-center">แตะปุ่ม "แชร์"<br>(Share)</p>
                                 <div class="bg-slate-700/60 p-1 rounded-lg border border-slate-600/50 mt-1 shrink-0 w-full h-12 flex items-center justify-center">
@@ -199,7 +268,7 @@
                                 </div>
                             </div>
                             
-                            <div class="bg-slate-800 p-3 rounded-2xl flex flex-col items-center">
+                            <div class="bg-slate-800 p-3 rounded-2xl flex flex-col items-center border border-slate-700">
                                 <div class="w-7 h-7 bg-ptc-red rounded-full flex items-center justify-center font-black mb-3 text-white">2</div>
                                 <p class="text-white font-bold leading-tight mb-3 flex-1 min-h-[36px] flex items-center">เลือก "เพิ่มไปยัง<br>หน้าจอโฮม"</p>
                                 <div class="bg-slate-700/60 p-1 rounded-lg border border-slate-600/50 mt-1 shrink-0 w-full h-12 flex items-center justify-center">
@@ -239,10 +308,9 @@
                 deferredPrompt = null;
             }
         });
-        // === 🔴 สิ้นสุดระบบ: 0. PWA SETUP ===
 
         // ==========================================
-        // 🟢 เริ่มระบบ: 1. CONFIGURATION & GLOBAL STATE
+        // 1. CONFIGURATION & GLOBAL STATE
         // ==========================================
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "=======================แก้ไขตรงนี้=======================",
@@ -250,7 +318,7 @@
             projectId: "=======================แก้ไขตรงนี้======================="
         };
         const APP_ID = typeof __app_id !== 'undefined' ? __app_id : "=======================แก้ไขตรงนี้=======================";
-        const SYSTEM_VERSION = "24.03-1150 ©hs4yaq";
+        const SYSTEM_VERSION = "24.03-1732 ©hs4yaq";
         let db, auth;
 
         window.state = {
@@ -262,7 +330,7 @@
             executives: ["---"], divisions: ["---"], academicDepts: ["---"], jobs: [],
             jobTitles: ["ครูผู้สอน", "เจ้าหน้าที่", "พนักงานราชการ", "ลูกจ้างชั่วคราว"],
             leaveTypes: ["ลากิจ", "ลาป่วย", "ไปราชการ", "ขาดราชการ", "อื่นๆ"],
-            allowedChannels: { line: false, facebook: false, chrome: true, safari: true }, // ระบบเปิด-ปิดช่องทาง
+            allowedChannels: { line: false, facebook: false, chrome: true, safari: true },
             deviceId: getDeviceID(),
             clientIp: '...',
             adminRecords: [],
@@ -270,12 +338,10 @@
             isProcessing: false,
             filters: { start: new Date().toLocaleDateString('en-CA') }
         };
-        // === 🔴 สิ้นสุดระบบ: 1. CONFIGURATION ===
 
         // ==========================================
-        // 🟢 เริ่มระบบ: 2. UTILITIES (ฟังก์ชันช่วยเหลือต่างๆ)
+        // 2. UTILITIES
         // ==========================================
-        
         const escapeHTML = (str) => {
             if (str === null || str === undefined) return '';
             return String(str).replace(/[&<>'"]/g, tag => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'}[tag] || tag));
@@ -332,10 +398,9 @@
         };
 
         window.closeStatusModal = () => document.getElementById('status-modal').classList.remove('modal-active');
-        // === 🔴 สิ้นสุดระบบ: 2. UTILITIES ===
 
         // ==========================================
-        // 🟢 เริ่มระบบ: 3. DATA & SERVICES (ดึงข้อมูล Firebase)
+        // 3. DATA & SERVICES
         // ==========================================
         async function loadConfig() {
             try {
@@ -351,7 +416,7 @@
                     if (d.adminEmails) window.state.adminEmails = d.adminEmails; 
                     if (d.jobTitles) window.state.jobTitles = d.jobTitles;
                     if (d.leaveTypes) window.state.leaveTypes = d.leaveTypes; 
-                    if (d.allowedChannels) window.state.allowedChannels = d.allowedChannels; // อัปเดตช่องทางอนุญาต
+                    if (d.allowedChannels) window.state.allowedChannels = d.allowedChannels;
                 }
             } catch (error) { console.error("Load config error:", error); }
         }
@@ -368,12 +433,11 @@
                 console.error("Load admin data error:", error);
                 window.showNotify('error', 'ไม่สามารถดึงข้อมูลได้', 'กรุณาตรวจสอบการเชื่อมต่อ');
             }
-        } // === 🔴 สิ้นสุดระบบ: 3. DATA & SERVICES ===
+        }
 
         // ==========================================
-        // 🟢 เริ่มระบบ: 4. CONTROLLERS & ACTIONS (การกดปุ่มและประมวลผล)
+        // 4. CONTROLLERS & ACTIONS
         // ==========================================
-        
         window.navigate = async (view) => { 
             if (window.state.view === view && view !== 'admin_panel') return; 
 
@@ -383,8 +447,8 @@
                 const adminView = document.getElementById('view-admin_panel');
                 adminView.innerHTML = `
                     <div class="flex flex-col items-center justify-center min-h-[75vh] w-full animate-in fade-in">
-                        <div class="loader w-12 h-12 border-4 rounded-full mb-6 border-slate-100 border-t-red-600 shadow-sm"></div>
-                        <p class="text-slate-400 font-bold uppercase tracking-widest text-xs animate-pulse">กำลังโหลดข้อมูลระบบ...</p>
+                        <div class="loader w-12 h-12 border-4 rounded-full mb-6 border-slate-100 dark:border-slate-800 border-t-red-600 dark:border-t-red-500 shadow-sm"></div>
+                        <p class="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest text-xs animate-pulse">กำลังโหลดข้อมูลระบบ...</p>
                     </div>`;
                 await loadAdminData();
             }
@@ -459,8 +523,8 @@
                 }
                 
                 let mainL = 'ACADEMIC';
-                if (document.getElementById('btn-sel-div').classList.contains('border-red-600')) mainL = 'SUPPORT';
-                else if (document.getElementById('btn-sel-exec').classList.contains('border-red-600')) mainL = 'EXECUTIVE';
+                if (document.getElementById('btn-sel-div').classList.contains('border-red-600') || document.getElementById('btn-sel-div').classList.contains('dark:border-red-500')) mainL = 'SUPPORT';
+                else if (document.getElementById('btn-sel-exec').classList.contains('border-red-600') || document.getElementById('btn-sel-exec').classList.contains('dark:border-red-500')) mainL = 'EXECUTIVE';
 
                 const data = { 
                     firstName: fn, lastName: ln, posId: id, 
@@ -571,14 +635,14 @@
                             const storedIn = localStorage.getItem(`ptc_att_${s.profile.posId}_${localTodayStr}_IN`);
                             const storedOut = localStorage.getItem(`ptc_att_${s.profile.posId}_${localTodayStr}_OUT`);
                             
-                            if (displayInBox) displayInBox.innerHTML = (storedIn && storedIn !== 'true') ? `<span class="text-emerald-600 font-black text-xl">${escapeHTML(storedIn)}</span> <span class="text-xs text-slate-400 font-bold">น.</span>` : (storedIn === 'true' ? `<span class="text-emerald-600 font-black text-sm">ลงเวลาแล้ว</span>` : `<span class="text-red-500 font-bold text-sm">ยังไม่ลงเวลา</span>`);
-                            if (displayOutBox) displayOutBox.innerHTML = (storedOut && storedOut !== 'true') ? `<span class="text-orange-500 font-black text-xl">${escapeHTML(storedOut)}</span> <span class="text-xs text-slate-400 font-bold">น.</span>` : (storedOut === 'true' ? `<span class="text-orange-500 font-black text-sm">ลงเวลาแล้ว</span>` : `<span class="text-red-500 font-bold text-sm">ยังไม่ลงเวลา</span>`);
+                            if (displayInBox) displayInBox.innerHTML = (storedIn && storedIn !== 'true') ? `<span class="text-emerald-600 dark:text-emerald-400 font-black text-xl">${escapeHTML(storedIn)}</span> <span class="text-xs text-slate-400 dark:text-slate-500 font-bold">น.</span>` : (storedIn === 'true' ? `<span class="text-emerald-600 dark:text-emerald-400 font-black text-sm">ลงเวลาแล้ว</span>` : `<span class="text-red-500 font-bold text-sm">ยังไม่ลงเวลา</span>`);
+                            if (displayOutBox) displayOutBox.innerHTML = (storedOut && storedOut !== 'true') ? `<span class="text-orange-500 dark:text-orange-400 font-black text-xl">${escapeHTML(storedOut)}</span> <span class="text-xs text-slate-400 dark:text-slate-500 font-bold">น.</span>` : (storedOut === 'true' ? `<span class="text-orange-500 dark:text-orange-400 font-black text-sm">ลงเวลาแล้ว</span>` : `<span class="text-red-500 font-bold text-sm">ยังไม่ลงเวลา</span>`);
                             
                             const btnWrap = document.getElementById('btn-wrap');
                             if (win === 'IN') {
-                                if (btnWrap) btnWrap.innerHTML = '<div class="p-6 bg-emerald-50 text-emerald-700 rounded-3xl font-black flex flex-col items-center gap-2 border border-emerald-100 shadow-sm"><i data-lucide="check-circle-2" size="32"></i> ลงเวลาเข้างานแล้ว</div>';
+                                if (btnWrap) btnWrap.innerHTML = '<div class="p-6 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-3xl font-black flex flex-col items-center gap-2 border border-emerald-100 dark:border-emerald-800/50 shadow-sm"><i data-lucide="check-circle-2" size="32"></i> ลงเวลาเข้างานแล้ว</div>';
                             } else {
-                                if (btnWrap) btnWrap.innerHTML = '<div class="p-6 bg-orange-50 text-orange-700 rounded-3xl font-black flex flex-col items-center gap-2 border border-orange-100 shadow-sm"><i data-lucide="check-circle-2" size="32"></i> ลงเวลาเลิกงานแล้ว</div>';
+                                if (btnWrap) btnWrap.innerHTML = '<div class="p-6 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 rounded-3xl font-black flex flex-col items-center gap-2 border border-orange-100 dark:border-orange-800/50 shadow-sm"><i data-lucide="check-circle-2" size="32"></i> ลงเวลาเลิกงานแล้ว</div>';
                             }
                             lucide.createIcons();
                         }
@@ -633,8 +697,8 @@
                     const btnContainer = document.querySelector('button[title="ยืนยันตัวตนแอดมิน"]')?.parentElement;
                     if(btnContainer) {
                         btnContainer.innerHTML = `
-                            <button onclick="window.navigate('admin_panel')" class="p-3 bg-slate-800 text-white rounded-2xl hover:bg-black transition-colors shadow-sm flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest"><i data-lucide="shield-check" size="16"></i> Admin</button>
-                            <button onclick="window.logoutUser()" class="p-3 bg-red-50 text-red-600 rounded-2xl hover:bg-red-100 transition-colors shadow-sm flex items-center justify-center" title="ออกจากระบบ"><i data-lucide="log-out" size="18"></i></button>
+                            <button onclick="window.navigate('admin_panel')" class="p-3 bg-slate-800 dark:bg-slate-700 text-white rounded-2xl hover:bg-black dark:hover:bg-slate-600 transition-colors shadow-sm flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest"><i data-lucide="shield-check" size="16"></i> Admin</button>
+                            <button onclick="window.logoutUser()" class="p-3 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-2xl hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors shadow-sm flex items-center justify-center" title="ออกจากระบบ"><i data-lucide="log-out" size="18"></i></button>
                         `;
                         lucide.createIcons();
                     }
@@ -707,7 +771,6 @@
                     };
                 }).filter(j => j.name !== '');
 
-                // อ่านค่าช่องทางจากปุ่ม UI
                 const newChannels = {
                     line: document.getElementById('cfg-chan-line').dataset.val === 'true',
                     facebook: document.getElementById('cfg-chan-fb').dataset.val === 'true',
@@ -725,7 +788,7 @@
                     divisions: divisions,
                     academicDepts: academicDepts,
                     jobs: jobs,
-                    allowedChannels: newChannels // บันทึกช่องทางที่อนุญาต
+                    allowedChannels: newChannels 
                 }, {merge:true});
                 await window.saveSystemLog('UPDATE_SETTINGS', 'อัปเดตโครงสร้างและเวลาปฏิบัติงานของวิทยาลัย');
                 
@@ -819,12 +882,10 @@
                 });
             } catch (e) { console.error("Log Error:", e); }
         };
-        // === 🔴 สิ้นสุดระบบ: 4. CONTROLLERS & ACTIONS ===
 
         // ==========================================
-        // 🟢 เริ่มระบบ: 5. VIEWS & RENDERING (การแสดงผล UI แต่ละหน้า)
+        // 5. VIEWS & RENDERING
         // ==========================================
-        
         function render() {
             const s = window.state;
             
@@ -853,7 +914,7 @@
         function renderLogin(c) {
             c.innerHTML = `
                 <div class="flex flex-col items-center justify-center min-h-[80vh] w-full">
-                    <div class="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100">
+                    <div class="w-full max-w-md bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-700 transition-colors duration-300">
                         <div class="bg-ptc-red p-10 text-white text-center relative overflow-hidden">
                             <img src="https://www.ptc.ac.th/attendance/logo_ptc.png" class="w-32 h-32 mx-auto mb-4 drop-shadow-xl relative z-10" alt="PTC Logo">
                             <h1 class="text-2xl font-black relative z-10 text-center text-white">วิทยาลัยเทคนิคภูเก็ต</h1>
@@ -862,14 +923,14 @@
                         <div class="p-8">
                             <form id="login-form" class="space-y-6">
                                 <div class="space-y-1">
-                                    <label class="text-[14px] font-bold text-slate-400 uppercase tracking-widest ml-1 block">รหัสผู้ใช้งาน</label>
-                                    <input type="text" id="login-id" required class="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-red-600 outline-none font-bold text-lg" placeholder="เลขบัตร ปชช. / เลขที่ตำแหน่ง">
+                                    <label class="text-[14px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 block">รหัสผู้ใช้งาน</label>
+                                    <input type="text" id="login-id" required class="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-700 text-slate-800 dark:text-white rounded-2xl focus:border-red-600 dark:focus:border-red-500 outline-none font-bold text-lg transition-colors" placeholder="เลขบัตร ปชช. / เลขที่ตำแหน่ง">
                                 </div>
-                                <button type="submit" id="btn-login" class="w-full bg-ptc-red text-white font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-all text-lg tracking-widest uppercase">เข้าสู่ระบบ</button>
+                                <button type="submit" id="btn-login" class="w-full bg-ptc-red text-white font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-all text-lg tracking-widest uppercase focus:outline-none">เข้าสู่ระบบ</button>
                             </form>
-                            <div class="mt-8 pt-6 border-t flex flex-col items-center gap-4">
-                                <button onclick="window.navigate('register')" class="text-red-700 font-bold text-sm hover:underline tracking-tight">เข้าใช้งานครั้งแรกที่นี่</button>
-                                <button onclick="window.navigate('admin_login')" class="text-slate-300 text-[10px] font-black uppercase tracking-widest hover:text-slate-500 transition-colors flex items-center justify-center gap-1 mt-4"><i data-lucide="lock" size="12"></i> <span>ผู้ดูแลระบบ</span></button>
+                            <div class="mt-8 pt-6 border-t dark:border-slate-700 flex flex-col items-center gap-4">
+                                <button onclick="window.navigate('register')" class="text-red-700 dark:text-red-500 font-bold text-sm hover:underline tracking-tight">เข้าใช้งานครั้งแรกที่นี่</button>
+                                <button onclick="window.navigate('admin_login')" class="text-slate-300 dark:text-slate-600 text-[10px] font-black uppercase tracking-widest hover:text-slate-500 dark:hover:text-slate-400 transition-colors flex items-center justify-center gap-1 mt-4 focus:outline-none"><i data-lucide="lock" size="12"></i> <span>ผู้ดูแลระบบ</span></button>
                             </div>
                         </div>
                     </div>
@@ -878,7 +939,7 @@
         }
 
         async function renderRegister(c) {
-            c.innerHTML = '<div class="text-center p-20"><div class="loader mx-auto w-10 h-10 border-4 border-slate-200 rounded-full mb-4"></div><p class="font-bold text-slate-400 animate-pulse">กำลังตรวจสอบเวลา...</p></div>';
+            c.innerHTML = '<div class="text-center p-20"><div class="loader mx-auto w-10 h-10 border-4 border-slate-200 dark:border-slate-700 rounded-full mb-4"></div><p class="font-bold text-slate-400 animate-pulse">กำลังตรวจสอบเวลา...</p></div>';
             
             let trueDate;
             try { trueDate = await getTrueTime(); } catch (err) { window.showNotify('error', 'ข้อผิดพลาดระบบเวลา', err.message); window.navigate('login'); return; }
@@ -888,36 +949,36 @@
 
             const s = window.state;
             c.innerHTML = `
-                <div class="max-w-lg mx-auto bg-white rounded-[2.5rem] shadow-2xl mt-4 overflow-hidden border border-slate-100">
+                <div class="max-w-lg mx-auto bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl mt-4 overflow-hidden border border-slate-100 dark:border-slate-700 transition-colors duration-300">
                     <div class="bg-ptc-red p-8 text-white flex items-center gap-4"><h1 class="text-xl font-black uppercase tracking-tighter">ลงทะเบียนบุคลากร</h1></div>
                     <form id="reg-form" class="p-8 space-y-4">
                         <div class="grid grid-cols-2 gap-4">
-                            <div><label class="text-[10px] font-bold text-slate-400 uppercase block">ชื่อ</label><input id="reg-fn" required class="w-full p-4 bg-slate-50 border-2 rounded-xl font-bold focus:border-red-600 outline-none"></div>
-                            <div><label class="text-[10px] font-bold text-slate-400 uppercase block">นามสกุล</label><input id="reg-ln" required class="w-full p-4 bg-slate-50 border-2 rounded-xl font-bold focus:border-red-600 outline-none"></div>
+                            <div><label class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase block mb-1">ชื่อ</label><input id="reg-fn" required class="w-full p-4 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white border-2 dark:border-slate-700 rounded-xl font-bold focus:border-red-600 dark:focus:border-red-500 outline-none transition-colors"></div>
+                            <div><label class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase block mb-1">นามสกุล</label><input id="reg-ln" required class="w-full p-4 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white border-2 dark:border-slate-700 rounded-xl font-bold focus:border-red-600 dark:focus:border-red-500 outline-none transition-colors"></div>
                         </div>
-                        <div class="space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">เลือกตำแหน่ง</label>
+                        <div class="space-y-1"><label class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block">เลือกตำแหน่ง</label>
                             <div class="flex gap-2 text-[10px] font-black">
-                                <button type="button" id="btn-sel-exec" class="flex-1 py-3 border-2 border-slate-100 bg-slate-50 rounded-xl text-slate-400 transition-all uppercase">ผู้บริหาร</button>
-                                <button type="button" id="btn-sel-dept" class="flex-1 py-3 border-2 border-red-600 bg-red-50 rounded-xl text-red-700 transition-all uppercase">ครู</button>
-                                <button type="button" id="btn-sel-div" class="flex-1 py-3 border-2 border-slate-100 bg-slate-50 rounded-xl text-slate-400 transition-all uppercase">เจ้าหน้าที่</button>
+                                <button type="button" id="btn-sel-exec" class="flex-1 py-3 border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-xl text-slate-400 dark:text-slate-500 transition-all uppercase focus:outline-none">ผู้บริหาร</button>
+                                <button type="button" id="btn-sel-dept" class="flex-1 py-3 border-2 border-red-600 dark:border-red-500 bg-red-50 dark:bg-red-900/20 rounded-xl text-red-700 dark:text-red-400 transition-all uppercase focus:outline-none">ครู</button>
+                                <button type="button" id="btn-sel-div" class="flex-1 py-3 border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-xl text-slate-400 dark:text-slate-500 transition-all uppercase focus:outline-none">เจ้าหน้าที่</button>
                             </div>
                         </div>
                         
                         <div id="box-executive" class="hidden space-y-4 animate-in fade-in slide-in-from-top-2">
-                            <label class="text-[10px] font-bold text-slate-400 uppercase block">ตำแหน่งผู้บริหาร</label>
-                            <select id="reg-exec" class="w-full p-4 bg-slate-50 border-2 rounded-xl font-bold outline-none focus:border-red-700"><option value="">เลือกตำแหน่ง</option>${s.executives.map(e => `<option value="${escapeHTML(e)}">${escapeHTML(e)}</option>`).join('')}</select>
+                            <label class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase block">ตำแหน่งผู้บริหาร</label>
+                            <select id="reg-exec" class="w-full p-4 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white border-2 dark:border-slate-700 rounded-xl font-bold outline-none focus:border-red-700 dark:focus:border-red-500 transition-colors"><option value="">เลือกตำแหน่ง</option>${s.executives.map(e => `<option value="${escapeHTML(e)}">${escapeHTML(e)}</option>`).join('')}</select>
                         </div>
                         <div id="box-division" class="hidden animate-in fade-in slide-in-from-top-2">
-                            <select id="reg-div" class="w-full p-4 bg-slate-50 border-2 rounded-xl font-bold outline-none focus:border-red-700"><option value="">เลือกฝ่ายงาน</option>${s.divisions.map(d => `<option value="${escapeHTML(d)}">${escapeHTML(d)}</option>`).join('')}</select>
-                            <select id="reg-job" class="w-full p-4 bg-slate-50 border-2 rounded-xl font-bold outline-none focus:border-red-700 mt-4"><option value="">เลือกงาน</option></select>
+                            <select id="reg-div" class="w-full p-4 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white border-2 dark:border-slate-700 rounded-xl font-bold outline-none focus:border-red-700 dark:focus:border-red-500 transition-colors"><option value="">เลือกฝ่ายงาน</option>${s.divisions.map(d => `<option value="${escapeHTML(d)}">${escapeHTML(d)}</option>`).join('')}</select>
+                            <select id="reg-job" class="w-full p-4 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white border-2 dark:border-slate-700 rounded-xl font-bold outline-none focus:border-red-700 dark:focus:border-red-500 mt-4 transition-colors"><option value="">เลือกงาน</option></select>
                         </div>
                         <div id="box-department" class="space-y-4 animate-in fade-in slide-in-from-top-2">
-                            <label class="text-[10px] font-bold text-slate-400 uppercase block">แผนกวิชา</label>
-                            <select id="reg-dept" required class="w-full p-4 bg-slate-50 border-2 rounded-xl font-bold outline-none focus:border-red-700"><option value="">เลือกแผนกวิชา</option>${s.academicDepts.map(d => `<option value="${escapeHTML(d)}">${escapeHTML(d)}</option>`).join('')}</select>
+                            <label class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase block">แผนกวิชา</label>
+                            <select id="reg-dept" required class="w-full p-4 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white border-2 dark:border-slate-700 rounded-xl font-bold outline-none focus:border-red-700 dark:focus:border-red-500 transition-colors"><option value="">เลือกแผนกวิชา</option>${s.academicDepts.map(d => `<option value="${escapeHTML(d)}">${escapeHTML(d)}</option>`).join('')}</select>
                         </div>
-                        <div><label id="id-label" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">เลขที่ตำแหน่ง</label><input id="reg-id" required class="w-full p-4 bg-slate-50 border-2 rounded-xl font-bold focus:border-red-600 outline-none"></div>
-                        <button type="submit" id="btn-reg-sub" class="w-full bg-red-700 text-white font-black py-4 rounded-xl shadow-lg active:scale-95 text-lg uppercase tracking-widest mt-6">บันทึกข้อมูลและผูกเครื่อง</button>
-                        <button type="button" onclick="window.navigate('login')" class="w-full text-slate-400 text-xs font-bold hover:text-red-600 transition-colors uppercase tracking-widest mt-4 flex items-center justify-center gap-1"><i data-lucide="arrow-left" size="12"></i> กลับหน้าหลัก</button>
+                        <div><label id="id-label" class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-1">เลขที่ตำแหน่ง</label><input id="reg-id" required class="w-full p-4 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white border-2 dark:border-slate-700 rounded-xl font-bold focus:border-red-600 dark:focus:border-red-500 outline-none transition-colors"></div>
+                        <button type="submit" id="btn-reg-sub" class="w-full bg-red-700 text-white font-black py-4 rounded-xl shadow-lg active:scale-95 text-lg uppercase tracking-widest mt-6 focus:outline-none">บันทึกข้อมูลและผูกเครื่อง</button>
+                        <button type="button" onclick="window.navigate('login')" class="w-full text-slate-400 dark:text-slate-500 text-xs font-bold hover:text-red-600 dark:hover:text-red-400 transition-colors uppercase tracking-widest mt-4 flex items-center justify-center gap-1 focus:outline-none"><i data-lucide="arrow-left" size="12"></i> กลับหน้าหลัก</button>
                     </form>
                 </div>`;
             lucide.createIcons();
@@ -927,14 +988,14 @@
             const idl = document.getElementById('id-label'), selDiv = document.getElementById('reg-div'), selJob = document.getElementById('reg-job');
             
             const resetUI = () => { 
-                [be, bs, ba].forEach(b => b.className="flex-1 py-3 border-2 border-slate-100 bg-slate-50 rounded-xl font-bold text-slate-400 uppercase transition-all"); 
+                [be, bs, ba].forEach(b => b.className="flex-1 py-3 border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-xl font-bold text-slate-400 dark:text-slate-500 uppercase transition-all focus:outline-none"); 
                 [bxe, bxs, bxa].forEach(x => x.classList.add('hidden'));
                 document.getElementById('reg-exec').required = false; document.getElementById('reg-div').required = false; document.getElementById('reg-job').required = false; document.getElementById('reg-dept').required = false;
             };
             
-            be.onclick = () => { resetUI(); be.className="flex-1 py-3 border-2 border-red-600 bg-red-50 rounded-xl font-bold text-red-700 uppercase"; bxe.classList.remove('hidden'); idl.innerText="รหัสประจำตัว"; document.getElementById('reg-exec').required = true; };
-            bs.onclick = () => { resetUI(); bs.className="flex-1 py-3 border-2 border-red-600 bg-red-50 rounded-xl font-bold text-red-700 uppercase"; bxs.classList.remove('hidden'); idl.innerText="เลขบัตรประชาชน"; document.getElementById('reg-div').required = true; document.getElementById('reg-job').required = true; };
-            ba.onclick = () => { resetUI(); ba.className="flex-1 py-3 border-2 border-red-600 bg-red-50 rounded-xl font-bold text-red-700 uppercase"; bxa.classList.remove('hidden'); idl.innerText="เลขที่ตำแหน่ง"; document.getElementById('reg-dept').required = true; };
+            be.onclick = () => { resetUI(); be.className="flex-1 py-3 border-2 border-red-600 dark:border-red-500 bg-red-50 dark:bg-red-900/20 rounded-xl font-bold text-red-700 dark:text-red-400 uppercase focus:outline-none"; bxe.classList.remove('hidden'); idl.innerText="รหัสประจำตัว"; document.getElementById('reg-exec').required = true; };
+            bs.onclick = () => { resetUI(); bs.className="flex-1 py-3 border-2 border-red-600 dark:border-red-500 bg-red-50 dark:bg-red-900/20 rounded-xl font-bold text-red-700 dark:text-red-400 uppercase focus:outline-none"; bxs.classList.remove('hidden'); idl.innerText="เลขบัตรประชาชน"; document.getElementById('reg-div').required = true; document.getElementById('reg-job').required = true; };
+            ba.onclick = () => { resetUI(); ba.className="flex-1 py-3 border-2 border-red-600 dark:border-red-500 bg-red-50 dark:bg-red-900/20 rounded-xl font-bold text-red-700 dark:text-red-400 uppercase focus:outline-none"; bxa.classList.remove('hidden'); idl.innerText="เลขที่ตำแหน่ง"; document.getElementById('reg-dept').required = true; };
             
             selDiv.onchange = () => { 
                 const f = s.jobs.filter(j => j.parent === selDiv.value); 
@@ -953,8 +1014,8 @@
             const hasIn = !!storedIn;
             const hasOut = !!storedOut;
 
-            const displayIn = (storedIn && storedIn !== 'true') ? `<span class="text-emerald-600 font-black text-xl">${escapeHTML(storedIn)}</span> <span class="text-xs text-slate-400 font-bold">น.</span>` : (storedIn === 'true' ? `<span class="text-emerald-600 font-black text-sm">ลงเวลาแล้ว</span>` : `<span class="text-red-500 font-bold text-sm">ยังไม่ลงเวลา</span>`);
-            const displayOut = (storedOut && storedOut !== 'true') ? `<span class="text-orange-500 font-black text-xl">${escapeHTML(storedOut)}</span> <span class="text-xs text-slate-400 font-bold">น.</span>` : (storedOut === 'true' ? `<span class="text-orange-500 font-black text-sm">ลงเวลาแล้ว</span>` : `<span class="text-red-500 font-bold text-sm">ยังไม่ลงเวลา</span>`);
+            const displayIn = (storedIn && storedIn !== 'true') ? `<span class="text-emerald-600 dark:text-emerald-400 font-black text-xl">${escapeHTML(storedIn)}</span> <span class="text-xs text-slate-400 dark:text-slate-500 font-bold">น.</span>` : (storedIn === 'true' ? `<span class="text-emerald-600 dark:text-emerald-400 font-black text-sm">ลงเวลาแล้ว</span>` : `<span class="text-red-500 font-bold text-sm">ยังไม่ลงเวลา</span>`);
+            const displayOut = (storedOut && storedOut !== 'true') ? `<span class="text-orange-500 dark:text-orange-400 font-black text-xl">${escapeHTML(storedOut)}</span> <span class="text-xs text-slate-400 dark:text-slate-500 font-bold">น.</span>` : (storedOut === 'true' ? `<span class="text-orange-500 dark:text-orange-400 font-black text-sm">ลงเวลาแล้ว</span>` : `<span class="text-red-500 font-bold text-sm">ยังไม่ลงเวลา</span>`);
 
             if (c.innerHTML.trim() !== '') {
                 document.getElementById('display-in-box').innerHTML = displayIn;
@@ -965,43 +1026,44 @@
             c.innerHTML = `
                 <div class="flex flex-col min-h-[85vh] w-full max-w-md mx-auto pt-4 animate-in fade-in">
                     
-                    <div class="bg-white p-6 rounded-3xl shadow-sm border flex items-center justify-between border-slate-100 shrink-0 mb-4">
+                    <div class="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border flex items-center justify-between border-slate-100 dark:border-slate-700 shrink-0 mb-4 transition-colors duration-300">
                         <div class="flex items-center gap-4">
                             <div class="w-16 h-16 bg-ptc-red text-white rounded-2xl flex items-center justify-center font-black text-2xl shadow-xl border-2 border-yellow-400/30">${escapeHTML(s.profile.firstName[0])}</div>
                             <div>
-                                <h3 class="font-black text-slate-800 text-lg leading-tight tracking-tight">${escapeHTML(s.profile.firstName)} ${escapeHTML(s.profile.lastName)}</h3>
-                                <p class="text-[10px] font-bold text-red-700 uppercase tracking-widest italic tracking-tight">${escapeHTML(s.profile.jobName || s.profile.department)}</p>
+                                <h3 class="font-black text-slate-800 dark:text-white text-lg leading-tight tracking-tight">${escapeHTML(s.profile.firstName)} ${escapeHTML(s.profile.lastName)}</h3>
+                                <p class="text-[10px] font-bold text-red-700 dark:text-red-400 uppercase tracking-widest italic tracking-tight">${escapeHTML(s.profile.jobName || s.profile.department)}</p>
                             </div>
                         </div>
                         <div class="flex gap-2">
                             ${(auth.currentUser && auth.currentUser.email && s.adminEmails.includes(auth.currentUser.email)) 
-                              ? `<button onclick="window.navigate('admin_panel')" class="p-3 bg-slate-800 text-white rounded-2xl hover:bg-black transition-colors shadow-sm flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest"><i data-lucide="shield-check" size="16"></i> Admin</button>` 
-                              : `<button onclick="window.loginAsAdminFromDashboard()" class="p-3 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-colors shadow-sm flex items-center justify-center" title="ยืนยันตัวตนแอดมิน"><i data-lucide="key" size="18"></i></button>`}
-                            <button onclick="window.logoutUser()" class="p-3 bg-red-50 text-red-600 rounded-2xl hover:bg-red-100 transition-colors shadow-sm flex items-center justify-center" title="ออกจากระบบ"><i data-lucide="log-out" size="18"></i></button>
+                              ? `<button onclick="window.navigate('admin_panel')" class="p-3 bg-slate-800 dark:bg-slate-700 text-white rounded-2xl hover:bg-black dark:hover:bg-slate-600 transition-colors shadow-sm flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest focus:outline-none"><i data-lucide="shield-check" size="16"></i> Admin</button>` 
+                              : `<button onclick="window.loginAsAdminFromDashboard()" class="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors shadow-sm flex items-center justify-center focus:outline-none" title="ยืนยันตัวตนแอดมิน"><i data-lucide="key" size="18"></i></button>`}
+                            <button onclick="window.logoutUser()" class="p-3 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-2xl hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors shadow-sm flex items-center justify-center focus:outline-none" title="ออกจากระบบ"><i data-lucide="log-out" size="18"></i></button>
                         </div>
                     </div>
 
-                    <div class="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100 mb-4 flex justify-between items-center shrink-0">
-                        <div class="text-center flex-1 border-r border-slate-100">
-                            <p class="text-[10px] font-bold text-slate-400 uppercase mb-1 flex items-center justify-center gap-1"><i data-lucide="log-in" size="14" class="text-emerald-500"></i> เวลาเข้างาน</p>
+                    <div class="bg-white dark:bg-slate-800 p-5 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-700 mb-4 flex justify-between items-center shrink-0 transition-colors duration-300">
+                        <div class="text-center flex-1 border-r border-slate-100 dark:border-slate-700">
+                            <p class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1 flex items-center justify-center gap-1"><i data-lucide="log-in" size="14" class="text-emerald-500 dark:text-emerald-400"></i> เวลาเข้างาน</p>
                             <div id="display-in-box">${displayIn}</div>
                         </div>
                         <div class="text-center flex-1">
-                            <p class="text-[10px] font-bold text-slate-400 uppercase mb-1 flex items-center justify-center gap-1"><i data-lucide="log-out" size="14" class="text-orange-500"></i> เวลาเลิกงาน</p>
+                            <p class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1 flex items-center justify-center gap-1"><i data-lucide="log-out" size="14" class="text-orange-500 dark:text-orange-400"></i> เวลาเลิกงาน</p>
                             <div id="display-out-box">${displayOut}</div>
                         </div>
                     </div>
 
                     <div class="flex flex-col justify-center pb-12">
-                        <div class="bg-white p-6 md:p-8 rounded-[3rem] shadow-2xl text-center border-b-[14px] border-ptc-red relative overflow-hidden w-full">
-                            <p class="text-ptc-red font-black mb-2 uppercase text-sm tracking-widest">${new Date().toLocaleDateString('th-TH', {weekday:'long', day:'numeric', month:'long', year:'numeric'})}</p>
-                            <h2 id="live-clock" class="text-6xl font-black text-slate-800 mb-6 tracking-tighter">--:--:--</h2>
+                        <div class="bg-white dark:bg-slate-800 p-6 md:p-8 rounded-[3rem] shadow-2xl text-center border-b-[14px] border-ptc-red relative overflow-hidden w-full transition-colors duration-300">
+                            <p class="text-ptc-red dark:text-red-500 font-black mb-2 uppercase text-sm tracking-widest">${new Date().toLocaleDateString('th-TH', {weekday:'long', day:'numeric', month:'long', year:'numeric'})}</p>
+                            <h2 id="live-clock" class="text-6xl font-black text-slate-800 dark:text-white mb-6 tracking-tighter">--:--:--</h2>
                             
-                            <div class="mb-6 rounded-[2rem] overflow-hidden shadow-inner border-4 border-slate-50 relative h-48 w-full bg-slate-100 z-0">
-                                <div id="location-map" class="w-full h-full z-0"></div>
-                                <div id="map-loader" class="absolute inset-0 flex flex-col items-center justify-center bg-white/70 backdrop-blur-sm z-10 transition-opacity">
-                                    <div class="loader w-8 h-8 border-4 border-slate-200 border-t-red-600 rounded-full mb-2"></div>
-                                    <p class="text-[10px] font-bold text-slate-600 uppercase tracking-widest">กำลังเชื่อมต่อดาวเทียม...</p>
+                            <div class="mb-6 rounded-[2rem] overflow-hidden shadow-inner border-4 border-slate-50 dark:border-slate-700 relative h-48 w-full bg-slate-100 dark:bg-slate-900 z-0">
+                                <!-- เพิ่มคลาส dark-map-filter สำหรับโหมดมืด -->
+                                <div id="location-map" class="w-full h-full z-0 dark:dark-map-filter"></div>
+                                <div id="map-loader" class="absolute inset-0 flex flex-col items-center justify-center bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm z-10 transition-opacity">
+                                    <div class="loader w-8 h-8 border-4 border-slate-200 dark:border-slate-700 border-t-red-600 dark:border-t-red-500 rounded-full mb-2"></div>
+                                    <p class="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest">กำลังเชื่อมต่อดาวเทียม...</p>
                                 </div>
                             </div>
                             
@@ -1015,7 +1077,7 @@
             try { trueDate = await getTrueTime(); } catch (err) {
                 const btnWrap = document.getElementById('btn-wrap');
                 if (btnWrap) {
-                    btnWrap.innerHTML = `<div class="p-6 bg-red-50 rounded-3xl border-2 border-dashed border-red-200 text-red-600 font-bold text-sm tracking-tight text-center flex flex-col items-center gap-3"><i data-lucide="wifi-off" size="24"></i>เชื่อมต่อ Server เวลาล้มเหลว<button onclick="window.location.reload()" class="mt-2 px-6 py-2.5 bg-red-600 text-white rounded-xl active:scale-95 transition-all text-xs font-black uppercase tracking-widest shadow-md">ลองโหลดใหม่</button></div>`;
+                    btnWrap.innerHTML = `<div class="p-6 bg-red-50 dark:bg-red-900/20 rounded-3xl border-2 border-dashed border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-400 font-bold text-sm tracking-tight text-center flex flex-col items-center gap-3"><i data-lucide="wifi-off" size="24"></i>เชื่อมต่อ Server เวลาล้มเหลว<button onclick="window.location.reload()" class="mt-2 px-6 py-2.5 bg-red-600 text-white rounded-xl active:scale-95 transition-all text-xs font-black uppercase tracking-widest shadow-md">ลองโหลดใหม่</button></div>`;
                     lucide.createIcons();
                 } return;
             }
@@ -1036,22 +1098,22 @@
                 if (!btnWrap) return; 
 
                 if (currentWin === 'NONE') {
-                    btnWrap.innerHTML = '<div class="p-8 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 text-slate-300 font-bold text-sm tracking-tight">ระบบยังไม่เปิดให้ลงเวลา</div>';
+                    btnWrap.innerHTML = '<div class="p-8 bg-slate-50 dark:bg-slate-900/50 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 font-bold text-sm tracking-tight">ระบบยังไม่เปิดให้ลงเวลา</div>';
                 } else if (currentWin === 'IN' && userHasIn) {
-                    btnWrap.innerHTML = '<div class="p-6 bg-emerald-50 text-emerald-700 rounded-3xl font-black flex flex-col items-center gap-2 border border-emerald-100 shadow-sm"><i data-lucide="check-circle-2" size="32"></i> ลงเวลาเข้างานแล้ว</div>'; lucide.createIcons();
+                    btnWrap.innerHTML = '<div class="p-6 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-3xl font-black flex flex-col items-center gap-2 border border-emerald-100 dark:border-emerald-800/50 shadow-sm"><i data-lucide="check-circle-2" size="32"></i> ลงเวลาเข้างานแล้ว</div>'; lucide.createIcons();
                 } else if (currentWin === 'OUT' && userHasOut) {
-                    btnWrap.innerHTML = '<div class="p-6 bg-orange-50 text-orange-700 rounded-3xl font-black flex flex-col items-center gap-2 border border-orange-100 shadow-sm"><i data-lucide="check-circle-2" size="32"></i> ลงเวลาเลิกงานแล้ว</div>'; lucide.createIcons();
+                    btnWrap.innerHTML = '<div class="p-6 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 rounded-3xl font-black flex flex-col items-center gap-2 border border-orange-100 dark:border-orange-800/50 shadow-sm"><i data-lucide="check-circle-2" size="32"></i> ลงเวลาเลิกงานแล้ว</div>'; lucide.createIcons();
                 } else {
                     if (!isMapReady) {
                         btnWrap.innerHTML = ''; 
                     } else if (!isLocFound) {
                         btnWrap.innerHTML = `
-                            <button disabled class="w-full flex items-center justify-center gap-3 bg-slate-100 text-slate-400 font-black py-7 rounded-[2rem] shadow-inner text-lg uppercase cursor-wait transition-all pointer-events-none">
+                            <button disabled class="w-full flex items-center justify-center gap-3 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 font-black py-7 rounded-[2rem] shadow-inner text-lg uppercase cursor-wait transition-all pointer-events-none">
                                 <i data-lucide="loader-2" class="animate-spin" size="28"></i> กำลังรอตำแหน่ง...</button>`;
                         lucide.createIcons();
                     } else {
                         btnWrap.innerHTML = `
-                            <button id="main-att-btn" class="w-full flex items-center justify-center gap-3 ${currentWin==='IN'?'bg-emerald-500 shadow-emerald-100':'bg-orange-500 shadow-orange-100'} text-white font-black py-7 rounded-[2rem] shadow-2xl active:scale-95 transition-all text-xl uppercase pointer-events-auto cursor-pointer">
+                            <button id="main-att-btn" class="w-full flex items-center justify-center gap-3 ${currentWin==='IN'?'bg-emerald-500 dark:bg-emerald-600 shadow-emerald-100 dark:shadow-none':'bg-orange-500 dark:bg-orange-600 shadow-orange-100 dark:shadow-none'} text-white font-black py-7 rounded-[2rem] shadow-2xl active:scale-95 transition-all text-xl uppercase pointer-events-auto cursor-pointer focus:outline-none">
                                 <i data-lucide="map-pin" size="28"></i> บันทึกเวลา${currentWin==='IN'?'เข้างาน':'เลิกงาน'}</button>`;
                         
                         setTimeout(() => {
@@ -1128,13 +1190,13 @@
                     window.userMap.on('locationerror', function(e) {
                         isLocFound = false;
                         if(document.getElementById('map-loader')) {
-                            document.getElementById('map-loader').innerHTML = '<div class="bg-red-50 p-3 rounded-xl border border-red-200 flex flex-col items-center"><i data-lucide="map-pin-off" class="text-red-500 mb-1" size="20"></i><p class="text-[10px] font-bold text-red-600">ไม่สามารถดึงพิกัดได้<br>กรุณาเปิด GPS</p></div>';
+                            document.getElementById('map-loader').innerHTML = '<div class="bg-red-50 dark:bg-red-900/30 p-3 rounded-xl border border-red-200 dark:border-red-800/50 flex flex-col items-center"><i data-lucide="map-pin-off" class="text-red-500 mb-1" size="20"></i><p class="text-[10px] font-bold text-red-600 dark:text-red-400">ไม่สามารถดึงพิกัดได้<br>กรุณาเปิด GPS</p></div>';
                             lucide.createIcons();
                         }
 
                         const btnWrap = document.getElementById('btn-wrap');
                         if (btnWrap && win !== 'NONE') {
-                            btnWrap.innerHTML = `<button id="main-att-btn" class="w-full flex items-center justify-center gap-3 bg-red-50 text-red-600 border-2 border-red-200 font-black py-7 rounded-[2rem] shadow-sm text-[15px] sm:text-lg uppercase active:scale-95 transition-all pointer-events-auto cursor-pointer">
+                            btnWrap.innerHTML = `<button id="main-att-btn" class="w-full flex items-center justify-center gap-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-2 border-red-200 dark:border-red-800/50 font-black py-7 rounded-[2rem] shadow-sm text-[15px] sm:text-lg uppercase active:scale-95 transition-all pointer-events-auto cursor-pointer focus:outline-none">
                                 <i data-lucide="alert-triangle" size="24"></i> กรุณาอนุญาตการเข้าถึงตำแหน่ง</button>`;
                             setTimeout(() => {
                                 const attBtn = document.getElementById('main-att-btn');
@@ -1153,14 +1215,14 @@
         function renderAdminLogin(c) {
             c.innerHTML = `
                 <div class="flex flex-col items-center justify-center min-h-[75vh]">
-                    <div class="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl p-10 border-t-8 border-red-700">
-                        <h1 class="text-2xl font-black mb-2 tracking-tighter text-slate-800 text-center">A d m i n  A c c e s s</h1>
-                        <p class="text-slate-400 text-[10px] mb-8 font-bold uppercase tracking-widest text-center">Security Verified</p>
+                    <div class="w-full max-w-md bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl p-10 border-t-8 border-red-700 transition-colors duration-300">
+                        <h1 class="text-2xl font-black mb-2 tracking-tighter text-slate-800 dark:text-white text-center">A d m i n  A c c e s s</h1>
+                        <p class="text-slate-400 dark:text-slate-500 text-[10px] mb-8 font-bold uppercase tracking-widest text-center">Security Verified</p>
                         <form class="space-y-4 w-full">
-                            <button type="button" onclick="window.loginAsAdmin()" class="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-100 py-4 rounded-2xl font-black shadow-sm hover:bg-slate-50 transition-all active:scale-95 text-slate-700 uppercase">
+                            <button type="button" onclick="window.loginAsAdmin()" class="w-full flex items-center justify-center gap-3 bg-white dark:bg-slate-700 border-2 border-slate-100 dark:border-slate-600 py-4 rounded-2xl font-black shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600 transition-all active:scale-95 text-slate-700 dark:text-slate-200 uppercase focus:outline-none">
                                 <img src="https://www.ptc.ac.th/attendance/google-logo.webp" class="w-12 h-12 bg-white rounded-xl p-1.5 shadow-sm"> Login with Google
                             </button>
-                            <button type="button" onclick="window.navigate('login')" class="w-full text-slate-400 text-xs font-bold hover:text-red-600 transition-colors uppercase tracking-widest mt-4 flex items-center justify-center gap-1"><i data-lucide="arrow-left" size="12"></i> กลับหน้าหลัก</button>
+                            <button type="button" onclick="window.navigate('login')" class="w-full text-slate-400 dark:text-slate-500 text-xs font-bold hover:text-red-600 dark:hover:text-red-400 transition-colors uppercase tracking-widest mt-4 flex items-center justify-center gap-1 focus:outline-none"><i data-lucide="arrow-left" size="12"></i> กลับหน้าหลัก</button>
                         </form>
                     </div>
                 </div>`;
@@ -1189,91 +1251,121 @@
 
             window.renderUserTable = (users) => {
                 return users.map(u => `
-                    <tr class="hover:bg-slate-50 transition-colors border-b">
-                        <td class="p-5 font-black text-slate-800 text-sm"><div class="flex items-center gap-2">${escapeHTML(u.firstName)} ${escapeHTML(u.lastName)}</div><span class="text-[9px] text-slate-400 font-normal mt-1 block">ตำเหน่ง: ${escapeHTML(u.jobName || u.department)}</span></td>
-                        <td class="p-5 font-mono text-xs text-slate-500 tracking-tight">${escapeHTML(u.posId)}</td>
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-b dark:border-slate-700">
+                        <td class="p-5 font-black text-slate-800 dark:text-slate-200 text-sm"><div class="flex items-center gap-2">${escapeHTML(u.firstName)} ${escapeHTML(u.lastName)}</div><span class="text-[9px] text-slate-400 dark:text-slate-500 font-normal mt-1 block">ตำเหน่ง: ${escapeHTML(u.jobName || u.department)}</span></td>
+                        <td class="p-5 font-mono text-xs text-slate-500 dark:text-slate-400 tracking-tight">${escapeHTML(u.posId)}</td>
                         <td class="p-5 text-right">
                             <div class="flex justify-end gap-2">
                                 ${u.boundDeviceId ? '<button><i data-lucide="smartphone" class="text-emerald-500" size="16"></i></button>' : ''}
-                                <button onclick="window.openEditUser('${escapeHTML(String(u.posId))}')" class="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-[10px] font-bold active:scale-95 border border-blue-100 shadow-sm flex items-center gap-1 hover:bg-blue-100 transition-colors"><i data-lucide="edit-2" size="12"></i></button>
-                                <button onclick="window.doReset('${escapeHTML(String(u.posId))}')" class="bg-amber-50 text-amber-600 px-3 py-1.5 rounded-lg text-[10px] font-bold active:scale-95 border border-amber-100 shadow-sm flex items-center gap-1 hover:bg-amber-100 transition-colors"><i data-lucide="refresh-cw" size="12"></i></button>
+                                <button onclick="window.openEditUser('${escapeHTML(String(u.posId))}')" class="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-3 py-1.5 rounded-lg text-[10px] font-bold active:scale-95 border border-blue-100 dark:border-blue-800/50 shadow-sm flex items-center gap-1 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors focus:outline-none"><i data-lucide="edit-2" size="12"></i></button>
+                                <button onclick="window.doReset('${escapeHTML(String(u.posId))}')" class="bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 px-3 py-1.5 rounded-lg text-[10px] font-bold active:scale-95 border border-amber-100 dark:border-amber-800/50 shadow-sm flex items-center gap-1 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors focus:outline-none"><i data-lucide="refresh-cw" size="12"></i></button>
                             </div>
                         </td>
                     </tr>`).join('');
             };
 
+            const renderExecCard = (ex) => {
+                if(!ex) return '';
+                const user = s.allUsers.find(u => u.mainLine === 'EXECUTIVE' && u.jobName === ex);
+                const ri = records.find(r => r.mainLine === 'EXECUTIVE' && r.jobName === ex && r.type === 'IN');
+                const ro = records.find(r => r.mainLine === 'EXECUTIVE' && r.jobName === ex && r.type === 'OUT');
+                const rem = records.find(r => r.mainLine === 'EXECUTIVE' && r.jobName === ex && r.type === 'REMARK');
+
+                let uName = 'ยังไม่ระบุบุคลากร';
+                if (user) uName = `${user.firstName} ${user.lastName}`;
+                else if (ri) uName = ri.userName;
+                else if (ro) uName = ro.userName;
+
+                let rightSideUI = '';
+                if (user && !ri && !ro) {
+                    rightSideUI = `<select onchange="window.saveRemark('${user.posId}', this.value)" class="text-[12px] w-full bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded px-2 py-1.5 outline-none text-amber-700 dark:text-amber-400 font-bold text-center"><option value="">- ระบุเหตุผล -</option>${s.leaveTypes.map(lt => `<option value="${escapeHTML(lt)}" ${rem && rem.remark === lt ? 'selected' : ''}>${escapeHTML(lt)}</option>`).join('')}</select>`;
+                } else {
+                    rightSideUI = `<div class="font-mono flex items-center justify-center bg-white dark:bg-slate-800 px-1 py-1.5 rounded-lg border border-slate-100 dark:border-slate-700 shadow-sm w-full text-[12px] md:text-[14px]">
+                        <span class="w-[60px] text-center ${ri ? 'text-emerald-600 dark:text-emerald-400 font-black' : 'text-slate-300 dark:text-slate-600'}">${ri ? ri.timeDisplay : '-'}</span>
+                        <span class="text-slate-300 dark:text-slate-600 mx-2">/</span>
+                        <span class="w-[60px] text-center ${ro ? 'text-orange-600 dark:text-orange-400 font-black' : 'text-slate-300 dark:text-slate-600'}">${ro ? ro.timeDisplay : '-'}</span>
+                    </div>`;
+                }
+
+                return `
+                <div class="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800 h-full flex flex-col justify-center">
+                    <div class="flex items-center justify-between gap-3 h-full">
+                        <div class="flex flex-col flex-1 min-w-0">
+                            <span class="text-[12px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tight truncate">${escapeHTML(ex)}</span>
+                            <span class="font-black text-[16px] md:text-[17px] leading-tight ${ri || ro ? 'text-slate-800 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400'} break-words pr-2">${escapeHTML(uName)}</span>
+                        </div>
+                        <div class="w-[155px] shrink-0">
+                            ${rightSideUI}
+                        </div>
+                    </div>
+                </div>`;
+            };
+
             c.innerHTML = `
                 <div class="space-y-6 no-print pb-20 animate-in fade-in">
-                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 gap-4">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-700 gap-4 transition-colors">
                         <div class="flex items-center gap-4">
                             <img src="https://www.ptc.ac.th/attendance/logo_ptc.png" width="60" alt="Logo">
-                            <div><h1 class="text-xl font-black text-slate-800 leading-tight uppercase tracking-tighter">แผงจัดการข้อมูล</h1><p class="text-[9px] text-red-700 font-bold uppercase tracking-widest tracking-tight">Admin System</p></div>
+                            <div><h1 class="text-xl font-black text-slate-800 dark:text-white leading-tight uppercase tracking-tighter">แผงจัดการข้อมูล</h1><p class="text-[9px] text-red-700 dark:text-red-400 font-bold uppercase tracking-widest tracking-tight">Admin System</p></div>
                         </div>
                         <div class="flex gap-2 self-end sm:self-auto flex-wrap">
-                            ${s.profile ? `<button onclick="window.navigate('dashboard')" class="bg-emerald-500 text-white px-4 py-3 rounded-xl font-bold text-sm shadow-lg active:scale-95 transition-all flex items-center gap-2"><i data-lucide="clock" size="16"></i></button>` : ''}
-                            <button onclick="document.getElementById('admin-settings-modal').classList.add('modal-active')" class="p-3 bg-slate-50 rounded-xl border hover:bg-slate-100 transition-colors shadow-sm"><i data-lucide="settings" class="text-slate-600"></i></button>
-                            <button onclick="window.openLogsPage()" class="bg-slate-800 text-white px-4 py-3 rounded-xl font-bold text-sm shadow-lg active:scale-95 transition-all flex items-center gap-2"><i data-lucide="history" size="16"></i></button>
-                            <button onclick="window.exportToWord()" class="bg-blue-600 text-white px-4 py-3 rounded-xl font-bold text-sm shadow-lg active:scale-95 transition-all flex items-center gap-2"><i data-lucide="file-text" size="16"></i>Word</button>
-                            <button onclick="window.print()" class="bg-red-700 text-white px-4 py-3 rounded-xl font-bold text-sm shadow-lg active:scale-95 transition-all flex items-center gap-2"><i data-lucide="printer" size="16"></i>PDF</button>
-                            <button onclick="window.logoutAdmin()" class="p-3 bg-slate-100 text-slate-400 rounded-xl hover:text-red-600 transition-colors shadow-sm flex items-center justify-center"><i data-lucide="log-out" size="20"></i></button>
+                            ${s.profile ? `<button onclick="window.navigate('dashboard')" class="bg-emerald-500 text-white px-4 py-3 rounded-xl font-bold text-sm shadow-lg active:scale-95 transition-all flex items-center gap-2 focus:outline-none"><i data-lucide="clock" size="16"></i></button>` : ''}
+                            <button onclick="document.getElementById('admin-settings-modal').classList.add('modal-active')" class="p-3 bg-slate-50 dark:bg-slate-700 rounded-xl border dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors shadow-sm focus:outline-none"><i data-lucide="settings" class="text-slate-600 dark:text-slate-300"></i></button>
+                            <button onclick="window.openLogsPage()" class="bg-slate-800 dark:bg-slate-700 text-white px-4 py-3 rounded-xl font-bold text-sm shadow-lg active:scale-95 transition-all flex items-center gap-2 focus:outline-none"><i data-lucide="history" size="16"></i></button>
+                            <button onclick="window.exportToWord()" class="bg-blue-600 text-white px-4 py-3 rounded-xl font-bold text-sm shadow-lg active:scale-95 transition-all flex items-center gap-2 focus:outline-none"><i data-lucide="file-text" size="16"></i>Word</button>
+                            <button onclick="window.print()" class="bg-red-700 text-white px-4 py-3 rounded-xl font-bold text-sm shadow-lg active:scale-95 transition-all flex items-center gap-2 focus:outline-none"><i data-lucide="printer" size="16"></i>PDF</button>
+                            <button onclick="window.logoutAdmin()" class="p-3 bg-slate-100 dark:bg-slate-700/50 text-slate-400 dark:text-slate-500 rounded-xl hover:text-red-600 dark:hover:text-red-400 transition-colors shadow-sm flex items-center justify-center focus:outline-none"><i data-lucide="log-out" size="20"></i></button>
                         </div>
                     </div>
 
-                    <div class="bg-white p-8 rounded-[2.5rem] border shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 border-slate-100">
+                    <div class="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] border shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 border-slate-100 dark:border-slate-700 transition-colors">
                         <div class="w-full md:w-auto">
-                            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block">เลือกวันที่รายงาน</span>
-                            <input type="date" id="dp" value="${s.filters.start}" class="w-full p-3 bg-slate-50 border rounded-xl font-black text-xl outline-none mt-1 text-slate-700">
+                            <span class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 block">เลือกวันที่รายงาน</span>
+                            <input type="date" id="dp" value="${s.filters.start}" class="w-full p-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 rounded-xl font-black text-xl outline-none mt-1 text-slate-700 dark:text-slate-200 transition-colors" style="color-scheme: ${document.documentElement.classList.contains('dark') ? 'dark' : 'light'};">
                         </div>
-                        <div class="flex gap-4 sm:gap-8 pr-2 w-full md:w-auto overflow-x-auto text-slate-800 justify-around">
-                            <div class="text-center font-black"><p class="text-[9px] text-emerald-500 uppercase tracking-tighter">ลงเวลาเข้างาน</p><p class="text-4xl tracking-tight">${uniqueIn.size}</p></div>
-                            <div class="text-center font-black"><p class="text-[9px] text-rose-500 uppercase tracking-tighter">ไม่ลงเวลาเข้างาน</p><p class="text-4xl tracking-tight">${absentIn}</p></div>
-                            <div class="text-center font-black"><p class="text-[9px] text-blue-500 uppercase tracking-tighter">ลงเวลาออกงาน</p><p class="text-4xl tracking-tight">${uniqueOut.size}</p></div>
-                            <div class="text-center font-black"><p class="text-[9px] text-rose-500 uppercase tracking-tighter">ไม่ลงเวลาออกงาน</p><p class="text-4xl tracking-tight">${absentOut}</p></div>
+                        <div class="grid grid-cols-4 gap-2 sm:gap-6 w-full md:w-auto text-slate-800 dark:text-white">
+                            <div class="text-center font-black"><p class="text-[9px] sm:text-[10px] text-emerald-500 dark:text-emerald-400 uppercase tracking-tighter">เข้างาน</p><p class="text-2xl sm:text-4xl tracking-tight">${uniqueIn.size}</p></div>
+                            <div class="text-center font-black"><p class="text-[9px] sm:text-[10px] text-rose-500 dark:text-rose-400 uppercase tracking-tighter">ไม่เข้างาน</p><p class="text-2xl sm:text-4xl tracking-tight">${absentIn}</p></div>
+                            <div class="text-center font-black"><p class="text-[9px] sm:text-[10px] text-orange-500 dark:text-orange-400 uppercase tracking-tighter">ออกงาน</p><p class="text-2xl sm:text-4xl tracking-tight">${uniqueOut.size}</p></div>
+                            <div class="text-center font-black"><p class="text-[9px] sm:text-[10px] text-rose-500 dark:text-rose-400 uppercase tracking-tighter">ไม่ออกงาน</p><p class="text-2xl sm:text-4xl tracking-tight">${absentOut}</p></div>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-2 bg-slate-200/50 p-1.5 rounded-2xl font-bold text-xs uppercase tracking-widest">
-                        <button id="t1" onclick="window.showAdminTab(1)" class="bg-white p-3 rounded-xl shadow-sm transition-all text-slate-800">สรุปตามกลุ่มสังกัด</button>
-                        <button id="t2" onclick="window.showAdminTab(2)" class="p-3 rounded-xl text-slate-500 transition-all">จัดการรายชื่อ/เครื่อง</button>
+                    <div class="grid grid-cols-2 gap-2 bg-slate-200/50 dark:bg-slate-800/50 p-1.5 rounded-2xl font-bold text-xs uppercase tracking-widest transition-colors">
+                        <button id="t1" onclick="window.showAdminTab(1)" class="bg-white dark:bg-slate-700 p-3 rounded-xl shadow-sm transition-all text-slate-800 dark:text-white focus:outline-none">สรุปตามกลุ่มสังกัด</button>
+                        <button id="t2" onclick="window.showAdminTab(2)" class="p-3 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all focus:outline-none">จัดการรายชื่อ/เครื่อง</button>
                     </div>
 
                     <div id="p1" class="space-y-8 mt-4">
-                        <div class="bg-slate-800 rounded-[2rem] p-8 text-white shadow-xl relative overflow-hidden">
-                            <h3 class="text-xl font-black tracking-tight mb-6 flex items-center gap-3"><i data-lucide="crown" class="text-yellow-400"></i> คณะผู้บริหาร</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                ${s.executives.map(ex => {
-                                    const user = s.allUsers.find(u => u.mainLine === 'EXECUTIVE' && u.jobName === ex);
-                                    const ri = records.find(r => r.mainLine === 'EXECUTIVE' && r.jobName === ex && r.type === 'IN');
-                                    const ro = records.find(r => r.mainLine === 'EXECUTIVE' && r.jobName === ex && r.type === 'OUT');
-                                    const rem = records.find(r => r.mainLine === 'EXECUTIVE' && r.jobName === ex && r.type === 'REMARK');
-                                    const uName = user ? `${user.firstName} ${user.lastName}` : (ri ? ri.userName : (ro ? ro.userName : null));
-                                    
-                                    let remarkUI = '';
-                                    if (user && !ri && !ro) {
-                                        remarkUI = `<select onchange="window.saveRemark('${user.posId}', this.value)" class="text-[10px] bg-white/10 border border-white/20 text-white rounded px-2 py-1 outline-none mt-2 font-bold w-full"><option value="" class="text-black">- ระบุเหตุผลการขาด/ลา -</option>${s.leaveTypes.map(lt => `<option value="${escapeHTML(lt)}" class="text-black" ${rem && rem.remark === lt ? 'selected' : ''}>${escapeHTML(lt)}</option>`).join('')}</select>`;
-                                    }
-
-                                    return `
-                                    <div class="bg-white/10 backdrop-blur-md p-5 rounded-2xl border border-white/10 flex flex-col justify-between h-48">
-                                        <div class="mt-2">
-                                            <p class="font-black text-[13px] opacity-70 uppercase leading-tight">${escapeHTML(ex)}</p>
-                                            ${uName ? `
-                                            <p class="text-lg font-black text-yellow-400 truncate">${escapeHTML(uName)}</p>
-                                            <p class="text-[10px] font-mono ${ri||ro ? 'text-white/50' : 'text-white/30'} mt-1 uppercase">เข้า: ${ri ? ri.timeDisplay : '-'} | ออก: ${ro ? ro.timeDisplay : '-'}</p>
-                                            ${(ri || ro) ? `
-                                            <p class="text-[8px] font-mono text-emerald-400/70 mt-1 break-all">IP: ${ri ? ri.ipAddress : (ro ? ro.ipAddress : '-')}</p>
-                                            <p class="text-[8px] font-mono text-slate-400 break-all leading-tight">DID: ${ri ? ri.deviceId : (ro ? ro.deviceId : '-')}</p>
-                                            ` : remarkUI}
-                                            ` : '<p class="text-sm font-bold text-white/20 py-4">ยังไม่ระบุบุคลากร</p>'}
-                                        </div>
-                                    </div>`;
-                                }).join('')}
+                        <div class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-sm border overflow-hidden border-slate-100 dark:border-slate-700 transition-colors">
+                            <div class="bg-slate-50 dark:bg-slate-800/50 p-6 border-b dark:border-slate-700 flex items-center justify-between gap-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-1.5 h-6 bg-yellow-400 rounded-full"></div>
+                                    <h3 class="font-black text-slate-700 dark:text-slate-200 text-lg uppercase tracking-tight">คณะผู้บริหาร</h3>
+                                </div>
+                                <i data-lucide="briefcase" size="24" class="text-yellow-500/50"></i>
+                            </div>
+                            <div class="p-6">
+                                <div class="bg-white dark:bg-slate-800 border-2 border-slate-50 dark:border-slate-700 rounded-2xl p-4 shadow-sm transition-all w-full">
+                                    <div class="w-full mb-4">
+                                        ${s.executives.length > 0 ? renderExecCard(s.executives[0]) : ''}
+                                    </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        ${s.executives.slice(1).map(ex => renderExecCard(ex)).join('')}
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         ${divSummary.map(div => `
-                            <div class="bg-white rounded-[2rem] shadow-sm border overflow-hidden border-slate-100">
-                                <div class="bg-slate-50 p-6 border-b flex items-center gap-3"><div class="w-1.5 h-6 bg-ptc-red rounded-full"></div><h3 class="font-black text-slate-700 text-lg uppercase tracking-tight">ฝ่าย: ${escapeHTML(div.name)}</h3></div>
+                            <div class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-sm border overflow-hidden border-slate-100 dark:border-slate-700 transition-colors">
+                                <div class="bg-slate-50 dark:bg-slate-800/50 p-6 border-b dark:border-slate-700 flex items-center justify-between gap-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-1.5 h-6 bg-ptc-red rounded-full"></div>
+                                        <h3 class="font-black text-slate-700 dark:text-slate-200 text-lg uppercase tracking-tight">ฝ่าย: ${escapeHTML(div.name)}</h3>
+                                    </div>
+                                    <i data-lucide="users" size="24" class="text-red-700/50"></i>
+                                </div>
                                 <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     ${div.jobs.map(job => {
                                         const jobUsers = s.allUsers.filter(u => u.division === div.name && (u.department === job.name || u.jobName === job.name)).sort((a, b) => {
@@ -1282,26 +1374,37 @@
                                                 return (riA ? riA.timeDisplay : '99:99:99').localeCompare(riB ? riB.timeDisplay : '99:99:99');
                                             });
                                         return `
-                                        <div class="bg-white border-2 border-slate-50 rounded-2xl p-4 shadow-sm hover:border-red-100 transition-all">
-                                            <div class="flex justify-between items-center mb-3">
-                                                <h4 class="font-black text-slate-600 text-[13px] truncate pr-2 uppercase">${escapeHTML(job.name)}</h4>
-                                                <span class="text-[9px] font-black bg-red-50 text-red-700 px-2.5 py-1 rounded-full text-center tracking-tight">${jobUsers.length}</span>
+                                        <div class="bg-white dark:bg-slate-800 border-2 border-slate-50 dark:border-slate-700 rounded-2xl p-4 shadow-sm hover:border-red-100 dark:hover:border-slate-600 transition-all flex flex-col">
+                                            <div class="flex justify-between items-center mb-3 border-b border-slate-50 dark:border-slate-700 pb-2">
+                                                <h4 class="font-black text-slate-600 dark:text-slate-300 text-[13px] truncate pr-2 uppercase">${escapeHTML(job.name)}</h4>
+                                                <span class="text-[9px] font-black bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-2.5 py-1 rounded-full text-center tracking-tight">${jobUsers.length}</span>
                                             </div>
-                                            <div class="space-y-3">
+                                            <div class="space-y-2 flex-1">
                                                 ${jobUsers.map(user => {
                                                     const pid = user.posId; 
                                                     const ri = job.entries.find(e => e.posId === pid && e.type === 'IN'); 
                                                     const ro = job.entries.find(e => e.posId === pid && e.type === 'OUT');
                                                     const rem = job.entries.find(e => e.posId === pid && e.type === 'REMARK');
                                                     
-                                                    let remarkUI = '';
+                                                    let rightSideUI = '';
                                                     if (!ri && !ro) {
-                                                        remarkUI = `<select onchange="window.saveRemark('${pid}', this.value)" class="text-[10px] bg-white border border-slate-200 rounded px-1.5 py-0.5 outline-none ml-2 text-amber-700 font-bold max-w-[90px]"><option value="">- ระบุเหตุผล -</option>${s.leaveTypes.map(lt => `<option value="${escapeHTML(lt)}" ${rem && rem.remark === lt ? 'selected' : ''}>${escapeHTML(lt)}</option>`).join('')}</select>`;
+                                                        rightSideUI = `<select onchange="window.saveRemark('${pid}', this.value)" class="text-[10px] w-full bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded px-1.5 py-1.5 outline-none text-amber-700 dark:text-amber-400 font-bold text-center"><option value="">- ระบุเหตุผล -</option>${s.leaveTypes.map(lt => `<option value="${escapeHTML(lt)}" ${rem && rem.remark === lt ? 'selected' : ''}>${escapeHTML(lt)}</option>`).join('')}</select>`;
+                                                    } else {
+                                                        rightSideUI = `<div class="font-mono flex items-center justify-center bg-white dark:bg-slate-800 px-1 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 shadow-sm w-full text-[11px] md:text-[12px]">
+                                                            <span class="w-[55px] text-center ${ri ? 'text-emerald-600 dark:text-emerald-400 font-black' : 'text-slate-300 dark:text-slate-600'}">${ri ? ri.timeDisplay : '-'}</span>
+                                                            <span class="text-slate-300 dark:text-slate-600 text-[10px] mx-1.5">/</span>
+                                                            <span class="w-[55px] text-center ${ro ? 'text-orange-600 dark:text-orange-400 font-black' : 'text-slate-300 dark:text-slate-600'}">${ro ? ro.timeDisplay : '-'}</span>
+                                                        </div>`;
                                                     }
 
-                                                    return `<div class="p-2 bg-slate-50 rounded-lg"><div class="flex justify-between items-center text-[11px]"><span class="font-black ${ri || ro ? 'text-slate-700' : 'text-slate-400'} truncate flex-1">${escapeHTML(user.firstName + ' ' + user.lastName)}</span><div class="flex items-center text-right"><span class="font-mono ${ri || ro ? 'text-red-700 font-bold' : 'text-slate-400'}">${ri ? ri.timeDisplay : '-'} / ${ro ? ro.timeDisplay : '-'}</span>${remarkUI}</div></div></div>`;
+                                                    return `<div class="p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded-xl mb-1.5 border border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                                                                <span class="font-black ${ri || ro ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'} flex-1 text-[11.5px] leading-tight break-words pr-1">${escapeHTML(user.firstName + ' ' + user.lastName)}</span>
+                                                                <div class="w-[140px] shrink-0">
+                                                                    ${rightSideUI}
+                                                                </div>
+                                                            </div>`;
                                                 }).join('')}
-                                                ${jobUsers.length === 0 ? '<p class="text-[10px] text-slate-300 text-center py-1">ว่าง</p>' : ''}
+                                                ${jobUsers.length === 0 ? '<p class="text-[11px] font-bold text-slate-300 dark:text-slate-600 text-center py-2 flex-1 flex items-center justify-center">ยังไม่มีข้อมูล</p>' : ''}
                                             </div>
                                         </div>`;
                                     }).join('')}
@@ -1309,151 +1412,171 @@
                             </div>
                         `).join('')}
 
-                        <div class="bg-ptc-red rounded-[2.5rem] p-1 shadow-2xl">
-                            <div class="bg-white rounded-[2.3rem] overflow-hidden">
-                                <div class="bg-ptc-red p-8 text-white flex justify-between items-center"><h3 class="font-black text-xl tracking-tighter uppercase text-white/90">สายวิชาการ</h3><i data-lucide="book-open" size="30" class="opacity-40"></i></div>
-                                <div class="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    ${academicSummary.map(dept => {
-                                        const deptUsers = s.allUsers.filter(u => u.mainLine === 'ACADEMIC' && u.department === dept.name).sort((a, b) => {
-                                                const riA = dept.entries.find(e => e.posId === a.posId && e.type === 'IN');
-                                                const riB = dept.entries.find(e => e.posId === b.posId && e.type === 'IN');
-                                                return (riA ? riA.timeDisplay : '99:99:99').localeCompare(riB ? riB.timeDisplay : '99:99:99');
-                                            });
-                                        return `
-                                        <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100 shadow-sm">
-                                            <h4 class="font-black text-slate-800 border-b-2 border-white pb-2 mb-3 flex justify-between uppercase"><span>${escapeHTML(dept.name)}</span><span class="text-ptc-red text-sm font-black">${deptUsers.length}</span></h4>
-                                            <div class="space-y-2">
-                                                ${deptUsers.map(user => {
-                                                    const pid = user.posId; 
-                                                    const ri = dept.entries.find(e => e.posId === pid && e.type === 'IN'); 
-                                                    const ro = dept.entries.find(e => e.posId === pid && e.type === 'OUT');
-                                                    const rem = dept.entries.find(e => e.posId === pid && e.type === 'REMARK');
-
-                                                    let remarkUI = '';
-                                                    if (!ri && !ro) {
-                                                        remarkUI = `<select onchange="window.saveRemark('${pid}', this.value)" class="text-[10px] bg-white border border-slate-200 rounded px-1.5 py-0.5 outline-none ml-2 text-amber-700 font-bold max-w-[90px]"><option value="">- ระบุเหตุผล -</option>${s.leaveTypes.map(lt => `<option value="${escapeHTML(lt)}" ${rem && rem.remark === lt ? 'selected' : ''}>${escapeHTML(lt)}</option>`).join('')}</select>`;
-                                                    }
-
-                                                    return `<div class="p-2 bg-white/60 rounded-lg shadow-sm"><div class="flex justify-between items-center text-[11px] font-black ${ri || ro ? 'text-slate-600' : 'text-slate-400'}"><span class="truncate flex-1">${escapeHTML(user.firstName + ' ' + user.lastName)}</span><div class="flex items-center text-right"><span class="${ri || ro ? 'text-red-700' : 'text-slate-400 font-normal'}">${ri ? ri.timeDisplay : '-'} / ${ro ? ro.timeDisplay : '-'}</span>${remarkUI}</div></div></div>`;
-                                                }).join('')}
-                                                ${deptUsers.length === 0 ? '<p class="text-[10px] text-slate-300 py-4">ยังไม่มีข้อมูล</p>' : ''}
-                                            </div>
-                                        </div>`;
-                                    }).join('')}
+                        <div class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-sm border overflow-hidden border-slate-100 dark:border-slate-700 transition-colors">
+                            <div class="bg-slate-50 dark:bg-slate-800/50 p-6 border-b dark:border-slate-700 flex items-center justify-between gap-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-1.5 h-6 bg-blue-500 rounded-full"></div>
+                                    <h3 class="font-black text-slate-700 dark:text-slate-200 text-lg uppercase tracking-tight">สายวิชาการ</h3>
                                 </div>
+                                <i data-lucide="book-open" size="24" class="text-blue-500/50"></i>
+                            </div>
+                            <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                ${academicSummary.map(dept => {
+                                    const deptUsers = s.allUsers.filter(u => u.mainLine === 'ACADEMIC' && u.department === dept.name).sort((a, b) => {
+                                            const riA = dept.entries.find(e => e.posId === a.posId && e.type === 'IN');
+                                            const riB = dept.entries.find(e => e.posId === b.posId && e.type === 'IN');
+                                            return (riA ? riA.timeDisplay : '99:99:99').localeCompare(riB ? riB.timeDisplay : '99:99:99');
+                                        });
+                                    return `
+                                    <div class="bg-white dark:bg-slate-800 border-2 border-slate-50 dark:border-slate-700 rounded-2xl p-4 shadow-sm hover:border-blue-100 dark:hover:border-slate-600 transition-all flex flex-col">
+                                        <div class="flex justify-between items-center mb-3 border-b border-slate-50 dark:border-slate-700 pb-2">
+                                            <h4 class="font-black text-slate-600 dark:text-slate-300 text-[13px] truncate pr-2 uppercase">${escapeHTML(dept.name)}</h4>
+                                            <span class="text-[9px] font-black bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2.5 py-1 rounded-full text-center tracking-tight">${deptUsers.length}</span>
+                                        </div>
+                                        <div class="space-y-2 flex-1">
+                                            ${deptUsers.map(user => {
+                                                const pid = user.posId; 
+                                                const ri = dept.entries.find(e => e.posId === pid && e.type === 'IN'); 
+                                                const ro = dept.entries.find(e => e.posId === pid && e.type === 'OUT');
+                                                const rem = dept.entries.find(e => e.posId === pid && e.type === 'REMARK');
+
+                                                let rightSideUI = '';
+                                                if (!ri && !ro) {
+                                                    rightSideUI = `<select onchange="window.saveRemark('${pid}', this.value)" class="text-[10px] w-full bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded px-1.5 py-1.5 outline-none text-amber-700 dark:text-amber-400 font-bold text-center"><option value="">- ระบุเหตุผล -</option>${s.leaveTypes.map(lt => `<option value="${escapeHTML(lt)}" ${rem && rem.remark === lt ? 'selected' : ''}>${escapeHTML(lt)}</option>`).join('')}</select>`;
+                                                } else {
+                                                    rightSideUI = `<div class="font-mono flex items-center justify-center bg-white dark:bg-slate-800 px-1 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 shadow-sm w-full text-[11px] md:text-[12px]">
+                                                        <span class="w-[55px] text-center ${ri ? 'text-emerald-600 dark:text-emerald-400 font-black' : 'text-slate-300 dark:text-slate-600'}">${ri ? ri.timeDisplay : '-'}</span>
+                                                        <span class="text-slate-300 dark:text-slate-600 text-[10px] mx-1.5">/</span>
+                                                        <span class="w-[55px] text-center ${ro ? 'text-orange-600 dark:text-orange-400 font-black' : 'text-slate-300 dark:text-slate-600'}">${ro ? ro.timeDisplay : '-'}</span>
+                                                    </div>`;
+                                                }
+
+                                                return `<div class="p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded-xl mb-1.5 border border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                                                            <span class="font-black ${ri || ro ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'} flex-1 text-[11.5px] leading-tight break-words pr-1">${escapeHTML(user.firstName + ' ' + user.lastName)}</span>
+                                                            <div class="w-[140px] shrink-0">
+                                                                ${rightSideUI}
+                                                            </div>
+                                                        </div>`;
+                                            }).join('')}
+                                            ${deptUsers.length === 0 ? '<p class="text-[11px] font-bold text-slate-300 dark:text-slate-600 text-center py-2 flex-1 flex items-center justify-center">ยังไม่มีข้อมูล</p>' : ''}
+                                        </div>
+                                    </div>`;
+                                }).join('')}
                             </div>
                         </div>
+
                     </div>
 
-                    <div id="p2" style="display:none;" class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden p-6">
+                    <div id="p2" style="display:none;" class="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden p-6 transition-colors">
                         <div class="mb-4 flex gap-3 items-center">
                             <div class="relative flex-1">
                                 <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><i data-lucide="search" class="text-slate-400" size="18"></i></div>
-                                <input type="text" id="user-search" onkeyup="window.searchUsers()" placeholder="ค้นหาด้วยชื่อ, นามสกุล หรือรหัส ID..." class="w-full pl-11 pr-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none focus:border-red-600 transition-colors text-slate-700">
+                                <input type="text" id="user-search" onkeyup="window.searchUsers()" placeholder="ค้นหาด้วยชื่อ, นามสกุล หรือรหัส ID..." class="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border dark:border-slate-700 rounded-xl font-bold text-sm outline-none focus:border-red-600 dark:focus:border-red-500 transition-colors text-slate-700 dark:text-slate-200">
                             </div>
-                            <button onclick="window.openAddUser()" class="bg-ptc-red text-white px-5 py-3 rounded-xl font-black text-xs shadow-md active:scale-95 transition-all flex items-center gap-2 whitespace-nowrap"><i data-lucide="user-plus" size="16"></i> เพิ่มบุคลากร</button>
+                            <button onclick="window.openAddUser()" class="bg-ptc-red text-white px-5 py-3 rounded-xl font-black text-xs shadow-md active:scale-95 transition-all flex items-center gap-2 whitespace-nowrap focus:outline-none"><i data-lucide="user-plus" size="16"></i> เพิ่มบุคลากร</button>
                         </div>
-                        <div class="overflow-x-auto rounded-xl border border-slate-100">
+                        <div class="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-700">
                             <table class="w-full text-sm min-w-[500px]">
-                                <thead class="bg-slate-50 border-b font-black text-[9px] text-slate-400 uppercase tracking-widest"><tr><th class="p-5 text-left">บุคลากร</th><th class="p-5 text-left tracking-widest">รหัส ID (Login)</th><th class="p-5 text-right tracking-widest">จัดการ</th></tr></thead>
-                                <tbody id="user-table-body" class="divide-y text-slate-800">${window.renderUserTable(s.allUsers)}</tbody>
+                                <thead class="bg-slate-50 dark:bg-slate-800/50 border-b dark:border-slate-700 font-black text-[9px] text-slate-400 uppercase tracking-widest"><tr><th class="p-5 text-left">บุคลากร</th><th class="p-5 text-left tracking-widest">รหัส ID (Login)</th><th class="p-5 text-right tracking-widest">จัดการ</th></tr></thead>
+                                <tbody id="user-table-body" class="divide-y dark:divide-slate-700 text-slate-800 dark:text-slate-200">${window.renderUserTable(s.allUsers)}</tbody>
                             </table>
                         </div>
                     </div>
                 </div>
 
+                <!-- Admin Settings Modal -->
                 <div id="admin-settings-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[2000] hidden flex items-center justify-center p-4">
-                    <div class="bg-white rounded-[2.5rem] p-8 max-w-lg w-full shadow-2xl h-[90vh] flex flex-col overflow-hidden text-sm">
-                        <h2 class="text-xl font-black mb-4 border-b pb-2 flex items-center gap-2 italic uppercase font-bold text-slate-800"><i data-lucide="settings" class="text-ptc-red" size="20"></i> จัดการโครงสร้างระบบ PTC</h2>
-                        <div class="space-y-6 overflow-y-auto flex-1 pr-2 text-left text-xs italic">
-                            <div class="bg-slate-50 p-4 rounded-2xl space-y-4 border border-slate-100 shadow-inner text-left">
-                                <h3 class="text-xs font-black text-slate-400 uppercase font-bold text-left italic">1. ตั้งค่าระบบและเวลา (System & Time)</h3>
+                    <div class="bg-white dark:bg-slate-800 rounded-[2.5rem] p-8 max-w-lg w-full shadow-2xl h-[90vh] flex flex-col overflow-hidden text-sm border border-slate-200 dark:border-slate-700 transition-colors duration-300">
+                        <h2 class="text-xl font-black mb-4 border-b dark:border-slate-700 pb-2 flex items-center gap-2 italic uppercase font-bold text-slate-800 dark:text-white"><i data-lucide="settings" class="text-ptc-red dark:text-red-500" size="20"></i> จัดการโครงสร้างระบบ PTC</h2>
+                        <div class="space-y-6 overflow-y-auto flex-1 pr-2 text-left text-xs italic custom-scrollbar">
+                            <div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl space-y-4 border border-slate-100 dark:border-slate-700 shadow-inner text-left">
+                                <h3 class="text-xs font-black text-slate-400 dark:text-slate-500 uppercase font-bold text-left italic">1. ตั้งค่าระบบและเวลา (System & Time)</h3>
                                 <div class="grid grid-cols-2 gap-4">
-                                    <div><label class="text-[9px] font-black text-slate-500 uppercase ml-1">พิกัด Lat</label><input type="number" step="any" id="cfg-lat" value="${s.schoolLoc.lat}" class="w-full p-3 bg-white border rounded-xl font-bold"></div>
-                                    <div><label class="text-[9px] font-black text-slate-500 uppercase ml-1">พิกัด Lng</label><input type="number" step="any" id="cfg-lng" value="${s.schoolLoc.lng}" class="w-full p-3 bg-white border rounded-xl font-bold"></div>
+                                    <div><label class="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase ml-1">พิกัด Lat</label><input type="number" step="any" id="cfg-lat" value="${s.schoolLoc.lat}" class="w-full p-3 bg-white dark:bg-slate-800 border dark:border-slate-700 text-slate-800 dark:text-white rounded-xl font-bold"></div>
+                                    <div><label class="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase ml-1">พิกัด Lng</label><input type="number" step="any" id="cfg-lng" value="${s.schoolLoc.lng}" class="w-full p-3 bg-white dark:bg-slate-800 border dark:border-slate-700 text-slate-800 dark:text-white rounded-xl font-bold"></div>
                                 </div>
-                                <div><label class="text-[9px] font-black text-slate-500 uppercase ml-1 tracking-tighter">รัศมีปฏิบัติหน้าที่ (เมตร)</label><input type="number" id="cfg-rad" value="${s.schoolLoc.radius}" class="w-full p-3 bg-white border rounded-xl font-bold text-red-700"></div>
+                                <div><label class="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase ml-1 tracking-tighter">รัศมีปฏิบัติหน้าที่ (เมตร)</label><input type="number" id="cfg-rad" value="${s.schoolLoc.radius}" class="w-full p-3 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-xl font-bold text-red-700 dark:text-red-400"></div>
                                 
-                                <div class="grid grid-cols-2 gap-4 mt-2 pt-4 border-t border-slate-200">
-                                    <div><label class="text-[9px] font-black text-slate-500 uppercase ml-1">เวลาเข้างาน (เริ่ม)</label><input type="time" id="cfg-in-s" value="${s.timeLimits.inStart}" class="w-full p-3 bg-white border rounded-xl font-bold text-emerald-600"></div>
-                                    <div><label class="text-[9px] font-black text-slate-500 uppercase ml-1">เวลาเข้างาน (สิ้นสุด)</label><input type="time" id="cfg-in-e" value="${s.timeLimits.inEnd}" class="w-full p-3 bg-white border rounded-xl font-bold text-emerald-600"></div>
+                                <div class="grid grid-cols-2 gap-4 mt-2 pt-4 border-t border-slate-200 dark:border-slate-700">
+                                    <div><label class="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase ml-1">เวลาเข้างาน (เริ่ม)</label><input type="time" id="cfg-in-s" value="${s.timeLimits.inStart}" class="w-full p-3 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-xl font-bold text-emerald-600 dark:text-emerald-400" style="color-scheme: ${document.documentElement.classList.contains('dark') ? 'dark' : 'light'};"></div>
+                                    <div><label class="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase ml-1">เวลาเข้างาน (สิ้นสุด)</label><input type="time" id="cfg-in-e" value="${s.timeLimits.inEnd}" class="w-full p-3 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-xl font-bold text-emerald-600 dark:text-emerald-400" style="color-scheme: ${document.documentElement.classList.contains('dark') ? 'dark' : 'light'};"></div>
                                 </div>
                                 <div class="grid grid-cols-2 gap-4">
-                                    <div><label class="text-[9px] font-black text-slate-500 uppercase ml-1">เวลาเลิกงาน (เริ่ม)</label><input type="time" id="cfg-out-s" value="${s.timeLimits.outStart}" class="w-full p-3 bg-white border rounded-xl font-bold text-orange-600"></div>
-                                    <div><label class="text-[9px] font-black text-slate-500 uppercase ml-1">เวลาเลิกงาน (สิ้นสุด)</label><input type="time" id="cfg-out-e" value="${s.timeLimits.outEnd}" class="w-full p-3 bg-white border rounded-xl font-bold text-orange-600"></div>
+                                    <div><label class="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase ml-1">เวลาเลิกงาน (เริ่ม)</label><input type="time" id="cfg-out-s" value="${s.timeLimits.outStart}" class="w-full p-3 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-xl font-bold text-orange-600 dark:text-orange-400" style="color-scheme: ${document.documentElement.classList.contains('dark') ? 'dark' : 'light'};"></div>
+                                    <div><label class="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase ml-1">เวลาเลิกงาน (สิ้นสุด)</label><input type="time" id="cfg-out-e" value="${s.timeLimits.outEnd}" class="w-full p-3 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-xl font-bold text-orange-600 dark:text-orange-400" style="color-scheme: ${document.documentElement.classList.contains('dark') ? 'dark' : 'light'};"></div>
                                 </div>
                                 
-                                <div class="mt-4 pt-4 border-t border-slate-200">
-                                    <label class="text-[9px] font-black text-slate-500 uppercase ml-1 block mb-2">อนุญาตให้เข้าใช้งานผ่าน (คลิกโลโก้เพื่อ เปิด/ปิด)</label>
+                                <div class="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                                    <label class="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase ml-1 block mb-2">อนุญาตให้เข้าใช้งานผ่าน (คลิกโลโก้เพื่อ เปิด/ปิด)</label>
                                     <div class="flex gap-4 items-center">
                                         <button type="button" id="cfg-chan-line" data-val="${s.allowedChannels.line}" 
                                             onclick="this.dataset.val = this.dataset.val === 'true' ? 'false' : 'true'; this.classList.toggle('grayscale'); this.classList.toggle('opacity-50');" 
-                                            class="w-10 h-10 rounded-xl shadow-sm transition-all bg-white p-1 border hover:scale-105 ${s.allowedChannels.line ? '' : 'grayscale opacity-50'}">
+                                            class="w-10 h-10 rounded-xl shadow-sm transition-all bg-white dark:bg-slate-800 p-1 border dark:border-slate-700 hover:scale-105 focus:outline-none ${s.allowedChannels.line ? '' : 'grayscale opacity-50'}">
                                             <img src="https://upload.wikimedia.org/wikipedia/commons/4/41/LINE_logo.svg" class="w-full h-full object-contain">
                                         </button>
                                         <button type="button" id="cfg-chan-fb" data-val="${s.allowedChannels.facebook}" 
                                             onclick="this.dataset.val = this.dataset.val === 'true' ? 'false' : 'true'; this.classList.toggle('grayscale'); this.classList.toggle('opacity-50');" 
-                                            class="w-10 h-10 rounded-xl shadow-sm transition-all bg-white p-1 border hover:scale-105 ${s.allowedChannels.facebook ? '' : 'grayscale opacity-50'}">
+                                            class="w-10 h-10 rounded-xl shadow-sm transition-all bg-white dark:bg-slate-800 p-1 border dark:border-slate-700 hover:scale-105 focus:outline-none ${s.allowedChannels.facebook ? '' : 'grayscale opacity-50'}">
                                             <img src="https://upload.wikimedia.org/wikipedia/commons/b/b8/2021_Facebook_icon.svg" class="w-full h-full object-contain">
                                         </button>
                                         <button type="button" id="cfg-chan-chrome" data-val="${s.allowedChannels.chrome}" 
                                             onclick="this.dataset.val = this.dataset.val === 'true' ? 'false' : 'true'; this.classList.toggle('grayscale'); this.classList.toggle('opacity-50');" 
-                                            class="w-10 h-10 rounded-xl shadow-sm transition-all bg-white p-1 border hover:scale-105 ${s.allowedChannels.chrome ? '' : 'grayscale opacity-50'}">
+                                            class="w-10 h-10 rounded-xl shadow-sm transition-all bg-white dark:bg-slate-800 p-1 border dark:border-slate-700 hover:scale-105 focus:outline-none ${s.allowedChannels.chrome ? '' : 'grayscale opacity-50'}">
                                             <img src="https://upload.wikimedia.org/wikipedia/commons/e/e1/Google_Chrome_icon_%28February_2022%29.svg" class="w-full h-full object-contain">
                                         </button>
                                         <button type="button" id="cfg-chan-safari" data-val="${s.allowedChannels.safari}" 
                                             onclick="this.dataset.val = this.dataset.val === 'true' ? 'false' : 'true'; this.classList.toggle('grayscale'); this.classList.toggle('opacity-50');" 
-                                            class="w-10 h-10 rounded-xl shadow-sm transition-all bg-white p-1 border hover:scale-105 ${s.allowedChannels.safari ? '' : 'grayscale opacity-50'}">
+                                            class="w-10 h-10 rounded-xl shadow-sm transition-all bg-white dark:bg-slate-800 p-1 border dark:border-slate-700 hover:scale-105 focus:outline-none ${s.allowedChannels.safari ? '' : 'grayscale opacity-50'}">
                                             <img src="https://upload.wikimedia.org/wikipedia/commons/5/52/Safari_browser_logo.svg" class="w-full h-full object-contain">
                                         </button>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="bg-purple-50 p-4 rounded-2xl space-y-4 border border-purple-100 text-left text-xs">
-                                <label class="text-[10px] font-black text-purple-700 uppercase italic font-bold tracking-tight text-left">2. อีเมลผู้ดูแลระบบ (Admin Emails)</label>
-                                <textarea id="cfg-admins" class="w-full p-3 border rounded-xl font-bold h-20 mt-1 focus:border-purple-500 outline-none text-left italic">${s.adminEmails.join('\n')}</textarea>
+                            <div class="bg-purple-50 dark:bg-purple-900/10 p-4 rounded-2xl space-y-4 border border-purple-100 dark:border-purple-800/30 text-left text-xs">
+                                <label class="text-[10px] font-black text-purple-700 dark:text-purple-400 uppercase italic font-bold tracking-tight text-left">2. อีเมลผู้ดูแลระบบ (Admin Emails)</label>
+                                <textarea id="cfg-admins" class="w-full p-3 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border dark:border-slate-700 rounded-xl font-bold h-20 mt-1 focus:border-purple-500 dark:focus:border-purple-400 outline-none text-left italic">${s.adminEmails.join('\n')}</textarea>
                             </div>
 
-                            <div class="bg-blue-50 p-4 rounded-2xl space-y-4 border border-blue-100 text-left text-xs">
-                                <label class="text-[10px] font-black text-blue-700 uppercase italic font-bold tracking-tight text-left">3. ตำแหน่งผู้บริหาร</label>
-                                <textarea id="cfg-execs" class="w-full p-3 border rounded-xl font-bold h-24 mt-1 focus:border-blue-500 outline-none text-left italic">${s.executives.join('\n')}</textarea>
+                            <div class="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-2xl space-y-4 border border-blue-100 dark:border-blue-800/30 text-left text-xs">
+                                <label class="text-[10px] font-black text-blue-700 dark:text-blue-400 uppercase italic font-bold tracking-tight text-left">3. ตำแหน่งผู้บริหาร</label>
+                                <textarea id="cfg-execs" class="w-full p-3 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border dark:border-slate-700 rounded-xl font-bold h-24 mt-1 focus:border-blue-500 dark:focus:border-blue-400 outline-none text-left italic">${s.executives.join('\n')}</textarea>
                             </div>
 
-                            <div class="bg-red-50 p-4 rounded-2xl space-y-4 border border-red-100 text-left text-xs">
-                                <label class="text-[10px] font-black text-red-700 uppercase italic font-bold tracking-tight text-left">4. สายสนับสนุน (ฝ่ายและงาน)</label>
-                                <textarea id="cfg-divs" class="w-full p-3 border rounded-xl font-bold h-20 mb-2 focus:border-red-500 outline-none text-left italic">${s.divisions.join('\n')}</textarea>
-                                <textarea id="cfg-jobs" class="w-full p-3 border rounded-xl font-bold h-32 focus:border-red-500 outline-none text-left italic" placeholder="งานพัสดุ:บริหารทรัพยากร">${s.jobs.map(j => `${j.name}:${j.parent}`).join('\n')}</textarea>
+                            <div class="bg-red-50 dark:bg-red-900/10 p-4 rounded-2xl space-y-4 border border-red-100 dark:border-red-800/30 text-left text-xs">
+                                <label class="text-[10px] font-black text-red-700 dark:text-red-400 uppercase italic font-bold tracking-tight text-left">4. สายสนับสนุน (ฝ่ายและงาน)</label>
+                                <textarea id="cfg-divs" class="w-full p-3 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border dark:border-slate-700 rounded-xl font-bold h-20 mb-2 focus:border-red-500 dark:focus:border-red-400 outline-none text-left italic">${s.divisions.join('\n')}</textarea>
+                                <textarea id="cfg-jobs" class="w-full p-3 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border dark:border-slate-700 rounded-xl font-bold h-32 focus:border-red-500 dark:focus:border-red-400 outline-none text-left italic" placeholder="งานพัสดุ:บริหารทรัพยากร">${s.jobs.map(j => `${j.name}:${j.parent}`).join('\n')}</textarea>
                             </div>
 
-                            <div class="bg-emerald-50 p-4 rounded-2xl space-y-4 border border-emerald-100 text-left text-xs">
-                                <label class="text-[10px] font-black text-emerald-700 uppercase italic font-bold tracking-tight text-left italic">5. สายวิชาการ (แผนกวิชา)</label>
-                                <textarea id="cfg-adepts" class="w-full p-3 border rounded-xl font-bold h-32 mt-1 focus:border-emerald-500 outline-none text-left italic">${s.academicDepts.join('\n')}</textarea>
+                            <div class="bg-emerald-50 dark:bg-emerald-900/10 p-4 rounded-2xl space-y-4 border border-emerald-100 dark:border-emerald-800/30 text-left text-xs">
+                                <label class="text-[10px] font-black text-emerald-700 dark:text-emerald-400 uppercase italic font-bold tracking-tight text-left italic">5. สายวิชาการ (แผนกวิชา)</label>
+                                <textarea id="cfg-adepts" class="w-full p-3 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border dark:border-slate-700 rounded-xl font-bold h-32 mt-1 focus:border-emerald-500 dark:focus:border-emerald-400 outline-none text-left italic">${s.academicDepts.join('\n')}</textarea>
                             </div>
 
-                            <div class="bg-orange-50 p-4 rounded-2xl space-y-4 border border-orange-100 text-left text-xs">
-                                <label class="text-[10px] font-black text-orange-700 uppercase italic font-bold tracking-tight text-left italic">6. รูปแบบชื่อตำแหน่ง (Job Titles)</label>
-                                <div class="text-[9px] text-orange-600 mb-1 leading-tight">ระบุรูปแบบ หมวดหมู่:ชื่อตำแหน่ง<br>เช่น <b>ครู:ครูชำนาญการ</b> หรือ <b>เจ้าหน้าที่:เจ้าหน้าที่งาน{dept}</b></div>
-                                <textarea id="cfg-jobtitles" class="w-full p-3 border rounded-xl font-bold h-24 mt-1 focus:border-orange-500 outline-none text-left italic">${(s.jobTitles || []).join('\n')}</textarea>
+                            <div class="bg-orange-50 dark:bg-orange-900/10 p-4 rounded-2xl space-y-4 border border-orange-100 dark:border-orange-800/30 text-left text-xs">
+                                <label class="text-[10px] font-black text-orange-700 dark:text-orange-400 uppercase italic font-bold tracking-tight text-left italic">6. รูปแบบชื่อตำแหน่ง (Job Titles)</label>
+                                <div class="text-[9px] text-orange-600 dark:text-orange-400/80 mb-1 leading-tight">ระบุรูปแบบ หมวดหมู่:ชื่อตำแหน่ง<br>เช่น <b>ครู:ครูชำนาญการ</b> หรือ <b>เจ้าหน้าที่:เจ้าหน้าที่งาน{dept}</b></div>
+                                <textarea id="cfg-jobtitles" class="w-full p-3 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border dark:border-slate-700 rounded-xl font-bold h-24 mt-1 focus:border-orange-500 dark:focus:border-orange-400 outline-none text-left italic">${(s.jobTitles || []).join('\n')}</textarea>
                             </div>
 
-                            <div class="bg-yellow-50 p-4 rounded-2xl space-y-4 border border-yellow-100 text-left text-xs">
-                                <label class="text-[10px] font-black text-yellow-700 uppercase italic font-bold tracking-tight text-left italic">7. ประเภทการลา/หมายเหตุ (Leave Types)</label>
-                                <div class="text-[9px] text-yellow-600 mb-1 leading-tight">ระบุตัวเลือกหมายเหตุสำหรับคนที่ไม่ได้ลงเวลา (บรรทัดละ 1 รายการ)</div>
-                                <textarea id="cfg-leaves" class="w-full p-3 border rounded-xl font-bold h-24 mt-1 focus:border-yellow-500 outline-none text-left italic" placeholder="ลากิจ\nลาป่วย\nไปราชการ\nขาดราชการ">${(s.leaveTypes || []).join('\n')}</textarea>
+                            <div class="bg-yellow-50 dark:bg-yellow-900/10 p-4 rounded-2xl space-y-4 border border-yellow-100 dark:border-yellow-800/30 text-left text-xs">
+                                <label class="text-[10px] font-black text-yellow-700 dark:text-yellow-400 uppercase italic font-bold tracking-tight text-left italic">7. ประเภทการลา/หมายเหตุ (Leave Types)</label>
+                                <div class="text-[9px] text-yellow-600 dark:text-yellow-400/80 mb-1 leading-tight">ระบุตัวเลือกหมายเหตุสำหรับคนที่ไม่ได้ลงเวลา (บรรทัดละ 1 รายการ)</div>
+                                <textarea id="cfg-leaves" class="w-full p-3 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border dark:border-slate-700 rounded-xl font-bold h-24 mt-1 focus:border-yellow-500 dark:focus:border-yellow-400 outline-none text-left italic" placeholder="ลากิจ\nลาป่วย\nไปราชการ\nขาดราชการ">${(s.leaveTypes || []).join('\n')}</textarea>
                             </div>
 
                         </div>
-                        <div class="flex gap-2 mt-6 pt-4 border-t text-left italic">
-                            <button onclick="document.getElementById('admin-settings-modal').classList.remove('modal-active')" class="flex-1 font-bold text-slate-400 uppercase tracking-tighter text-center">ปิด</button>
-                            <button onclick="window.saveSettings()" class="flex-[2] bg-red-700 text-white py-3.5 rounded-xl font-black shadow-lg uppercase active:scale-95 tracking-tight text-center">บันทึกการตั้งค่า</button>
+                        <div class="flex gap-2 mt-6 pt-4 border-t dark:border-slate-700 text-left italic">
+                            <button onclick="document.getElementById('admin-settings-modal').classList.remove('modal-active')" class="flex-1 font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-center hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl py-3 transition-colors focus:outline-none">ปิด</button>
+                            <button onclick="window.saveSettings()" class="flex-[2] bg-red-700 text-white py-3.5 rounded-xl font-black shadow-lg uppercase active:scale-95 tracking-tight text-center focus:outline-none">บันทึกการตั้งค่า</button>
                         </div>
                     </div>
                 </div>
 
                 <div id="print-area" class="print-only report-page text-left">
-                    <div style="display:flex; flex-direction:column; align-items:center; margin-bottom:30px; text-align:center; border-bottom: 2px solid #000; padding-bottom: 20px;">
-                        <img src="https://www.ptc.ac.th/attendance/logo_ptc.png" width="80" alt="Logo">
+                    <div style="display:flex; flex-direction:column; align-items:center; margin-bottom:25px; text-align:center; border-bottom: 2px solid #000; padding-bottom: 15px;">
+                        <img src="https://www.ptc.ac.th/attendance/logo_ptc.png" width="110" alt="Logo" style="margin-top: -10px;">
                         <h1 style="font-size:22pt; font-weight:bold; margin-top:10px;">รายงานสรุปการลงเวลาปฏิบัติราชการ / ปฏิบัติหน้าที่</h1>
                         <h2 style="font-size:16pt; font-weight:bold;">วิทยาลัยเทคนิคภูเก็ต</h2>
                         <p style="font-size:12pt; margin-top:5px; font-weight:bold;">ข้อมูลประจำวันที่ ${new Date(dateStr).toLocaleDateString('th-TH', {day:'numeric', month:'long', year:'numeric'})}</p>
@@ -1520,7 +1643,7 @@
                 </div>
                 `;
 
-            document.getElementById('dp').onchange = async (e) => { s.filters.start = e.target.value; document.getElementById('view-admin_panel').innerHTML = `<div class="flex flex-col items-center justify-center min-h-[75vh] w-full animate-in fade-in"><div class="loader w-12 h-12 border-4 rounded-full mb-6 border-slate-100 border-t-red-600 shadow-sm"></div><p class="text-slate-400 font-bold uppercase tracking-widest text-lg animate-pulse">กำลังดึงข้อมูลรายงาน...</p></div>`; await loadAdminData(); render(); };
+            document.getElementById('dp').onchange = async (e) => { s.filters.start = e.target.value; document.getElementById('view-admin_panel').innerHTML = `<div class="flex flex-col items-center justify-center min-h-[75vh] w-full animate-in fade-in"><div class="loader w-12 h-12 border-4 rounded-full mb-6 border-slate-100 dark:border-slate-800 border-t-red-600 dark:border-t-red-500 shadow-sm"></div><p class="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest text-lg animate-pulse">กำลังดึงข้อมูลรายงาน...</p></div>`; await loadAdminData(); render(); };
             
             document.getElementById('form-edit-user').onsubmit = async (e) => {
                 e.preventDefault();
@@ -1626,15 +1749,15 @@
         };
 
         window.openAddUser = () => {
-            document.getElementById('modal-action-title').innerHTML = '<i data-lucide="user-plus" class="text-ptc-red inline-block" size="20"></i> เพิ่มบุคลากรใหม่';
+            document.getElementById('modal-action-title').innerHTML = '<i data-lucide="user-plus" class="text-ptc-red dark:text-red-500 inline-block" size="20"></i> เพิ่มบุคลากรใหม่';
             document.getElementById('id-warning-msg').style.display = 'none';
             
             document.getElementById('edit-original-id').value = 'NEW';
             const idInput = document.getElementById('edit-posid');
             idInput.value = '';
             idInput.readOnly = false;
-            idInput.classList.remove('bg-slate-100', 'text-slate-500');
-            idInput.classList.add('bg-slate-50', 'focus:border-red-600');
+            idInput.classList.remove('bg-slate-100', 'text-slate-500', 'dark:bg-slate-700', 'dark:text-slate-400');
+            idInput.classList.add('bg-slate-50', 'dark:bg-slate-900', 'focus:border-red-600', 'dark:focus:border-red-500', 'text-slate-800', 'dark:text-white');
             
             document.getElementById('edit-fn').value = '';
             document.getElementById('edit-ln').value = '';
@@ -1657,13 +1780,13 @@
         window.openEditUser = (posId) => {
             const user = window.state.allUsers.find(u => String(u.posId) === String(posId));
             if(user) {
-                document.getElementById('modal-action-title').innerHTML = '<i data-lucide="user-cog" class="text-ptc-red inline-block" size="20"></i> จัดการข้อมูลบุคลากร';
+                document.getElementById('modal-action-title').innerHTML = '<i data-lucide="user-cog" class="text-ptc-red dark:text-red-500 inline-block" size="20"></i> จัดการข้อมูลบุคลากร';
                 document.getElementById('id-warning-msg').style.display = 'flex';
                 
                 const idInput = document.getElementById('edit-posid');
                 idInput.readOnly = true;
-                idInput.classList.add('bg-slate-100', 'text-slate-500');
-                idInput.classList.remove('bg-slate-50', 'focus:border-red-600');
+                idInput.classList.add('bg-slate-100', 'text-slate-500', 'dark:bg-slate-700', 'dark:text-slate-400');
+                idInput.classList.remove('bg-slate-50', 'dark:bg-slate-900', 'focus:border-red-600', 'dark:focus:border-red-500', 'text-slate-800', 'dark:text-white');
 
                 const mlEl = document.getElementById('edit-mainline');
                 const divEl = document.getElementById('edit-div');
@@ -1689,8 +1812,8 @@
 
         window.showAdminTab = (n) => {
             document.getElementById('p1').style.display = (n===1) ? 'block' : 'none'; document.getElementById('p2').style.display = (n===2) ? 'block' : 'none';
-            document.getElementById('t1').className = (n===1) ? 'bg-white p-3 rounded-xl shadow-sm transition-all font-bold text-slate-800' : 'p-3 rounded-xl text-slate-500 font-bold';
-            document.getElementById('t2').className = (n===2) ? 'bg-white p-3 rounded-xl shadow-sm transition-all font-bold text-slate-800' : 'p-3 rounded-xl text-slate-500 font-bold';
+            document.getElementById('t1').className = (n===1) ? 'bg-white dark:bg-slate-700 p-3 rounded-xl shadow-sm transition-all font-bold text-slate-800 dark:text-white focus:outline-none' : 'p-3 rounded-xl text-slate-500 dark:text-slate-400 font-bold focus:outline-none hover:text-slate-700 dark:hover:text-slate-200 transition-colors';
+            document.getElementById('t2').className = (n===2) ? 'bg-white dark:bg-slate-700 p-3 rounded-xl shadow-sm transition-all font-bold text-slate-800 dark:text-white focus:outline-none' : 'p-3 rounded-xl text-slate-500 dark:text-slate-400 font-bold focus:outline-none hover:text-slate-700 dark:hover:text-slate-200 transition-colors';
         };
 
         window.doReset = async (id) => {
@@ -1714,10 +1837,9 @@
             const downloadLink = document.createElement("a"); downloadLink.href = url; downloadLink.download = 'Attendance_Report_' + window.state.filters.start + '.doc';
             document.body.appendChild(downloadLink); downloadLink.click(); document.body.removeChild(downloadLink); URL.revokeObjectURL(url);
         };
-        // === 🔴 สิ้นสุดระบบ: 5. VIEWS & RENDERING ===
 
         // ==========================================
-        // 🟢 เริ่มระบบ: 6. INITIALIZATION & ROUTER (หัวใจหลักสั่งรันระบบตอนโหลดเว็บ)
+        // 6. INITIALIZATION & ROUTER
         // ==========================================
         async function init() {
             try {
@@ -1736,7 +1858,6 @@
                     setTimeout(() => {
                         window.showPwaBanner();
                         
-                        // --- แจ้งเตือนคนใช้ iOS (Chrome/LINE) ทันทีที่โหลดเข้าเว็บเสร็จ ---
                         if (!isStandalone && isIosNotSafari) {
                             setTimeout(() => {
                                 window.showNotify(
@@ -1746,8 +1867,6 @@
                                 );
                             }, 500); 
                         }
-                        // -------------------------------------------------------------
-                        
                     }, 1500); 
                 };
 
@@ -1759,9 +1878,6 @@
 
                     await loadConfig();
                     
-                    // ==========================================
-                    //  🟢 ดักจับการเปิดผ่านแอปพลิเคชัน (ระบบควบคุมช่องทาง)
-                    // ==========================================
                     const ua = navigator.userAgent || navigator.vendor || window.opera;
                     const isLine = (ua.indexOf("Line") > -1);
                     const isFb = (ua.indexOf("FBAN") > -1) || (ua.indexOf("FBAV") > -1);
@@ -1778,17 +1894,16 @@
 
                     if (isBlocked) {
                         document.body.innerHTML = `
-                            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#f1f5f9; text-align:center; padding:20px; font-family:'Sarabun',sans-serif;">
-                                <div style="background:white; padding:30px; border-radius:20px; box-shadow:0 10px 25px rgba(0,0,0,0.1); max-width:400px; width:100%;">
+                            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:var(--bg-color, #f1f5f9); text-align:center; padding:20px; font-family:'Sarabun',sans-serif;" class="dark:bg-slate-900">
+                                <div style="background:var(--card-bg, white); padding:30px; border-radius:20px; box-shadow:0 10px 25px rgba(0,0,0,0.1); max-width:400px; width:100%;" class="dark:bg-slate-800 dark:border dark:border-slate-700">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 auto 15px auto;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
-                                    <h2 style="color:#1e293b; font-size:20px; font-weight:900; margin-bottom:10px;">ช่องทางนี้ถูกปิดการใช้งาน</h2>
-                                    <p style="color:#64748b; font-size:14px; margin-bottom:20px; line-height:1.5;">แอดมินระบบได้ตั้งค่าไม่อนุญาตให้เข้าใช้งานผ่านแอป/เบราว์เซอร์นี้<br><br>กรุณาคัดลอกลิงก์ไปเปิดใน <b>ช่องทางอื่นที่ได้รับอนุญาต</b> ครับ</p>
+                                    <h2 style="color:var(--text-main, #1e293b); font-size:20px; font-weight:900; margin-bottom:10px;" class="dark:text-white">ช่องทางนี้ถูกปิดการใช้งาน</h2>
+                                    <p style="color:var(--text-sub, #64748b); font-size:14px; margin-bottom:20px; line-height:1.5;" class="dark:text-slate-400">แอดมินระบบได้ตั้งค่าไม่อนุญาตให้เข้าใช้งานผ่านแอป/เบราว์เซอร์นี้<br><br>กรุณาคัดลอกลิงก์ไปเปิดใน <b>ช่องทางอื่นที่ได้รับอนุญาต</b> ครับ</p>
                                 </div>
                             </div>
                         `;
-                        return; // หยุดการทำงานของระบบที่เหลือทั้งหมด
+                        return;
                     }
-                    // ==========================================
                     
                     const CURRENT_CACHE_VERSION = SYSTEM_VERSION; 
                     if (localStorage.getItem('ptc_cache_version') !== CURRENT_CACHE_VERSION) {
@@ -1870,7 +1985,6 @@
         }
 
         init();
-        // === 🔴 สิ้นสุดระบบ: 6. INITIALIZATION & ROUTER ===
     </script>
-    </body>
+</body>
 </html>
